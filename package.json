@@ -1,6 +1,6 @@
 {
   "name": "@rello-platform/agent-provisioning",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Canonical zod schema for the Rello → spokes cascade payload.",
   "type": "module",
   "main": "./dist/index.js",
@@ -22,7 +22,6 @@
   "scripts": {
     "build": "tsc",
     "test": "tsc -p tsconfig.test.json && node --test dist-test/**/*.test.js",
-    "prepare": "tsc",
     "prepublishOnly": "npm run build && npm test"
   },
   "publishConfig": {
