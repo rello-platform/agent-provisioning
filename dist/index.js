@@ -1,2 +1,2 @@
-export { AgentProvisioningPayloadSchema, AgentPayloadSchema, AgentProfilePayloadSchema, TenantBrandingPayloadSchema, WizardAnswerPayloadSchema, } from "./payload.js";
+export { AgentProvisioningPayloadSchema, AgentPayloadSchema, AgentProfilePayloadSchema, TenantBrandingPayloadSchema, WizardAnswerPayloadSchema, AgentNotificationPreferencePayloadSchema, } from "./payload.js";
 //# sourceMappingURL=index.js.map

@@ -70,6 +70,35 @@ export const WizardAnswerPayloadSchema = z.object({
     question: z.string(),
     answer: z.unknown(),
 }).strict();
+/**
+ * Canonical zod schema for per-Agent notification preferences cascaded
+ * from Rello to dispatching spokes. Resolves D-14 (per-tenant notification
+ * preferences spoke-by-spoke divergence) per build doc § 8 Q5 + Q9 + Q10
+ * locks (Walk 2 2026-05-11).
+ *
+ * Master toggles (cross-spoke reach):
+ *   - notifyByEmail, notifyBySms, notifyByPush
+ *
+ * Per-spoke cadence (digest controls):
+ *   - dailyDigest, weeklyAnalytics
+ *
+ * Defaults are application-side (Prisma @default) — Conservative per Example
+ * 6 in ~CASCADING-GUARDRAILS-AND-SETTINGS-README.md §11: notify-on-everything
+ * for first interaction class, opt-in for subsequent.
+ *
+ * Per-event toggles (leadAlerts, eventInvites, newsletterDigest,
+ * mortgageUpdates, marketAlerts, videoDrops, engagementSummary,
+ * escalationAlerts) DEFERRED to v0.2.x as per-spoke active-dispatch wiring
+ * specs need them (Q10 lock — per-spoke wiring is per-spoke Phase 1 KA
+ * territory, not this dispatch).
+ */
+export const AgentNotificationPreferencePayloadSchema = z.object({
+    notifyByEmail: z.boolean(),
+    notifyBySms: z.boolean(),
+    notifyByPush: z.boolean(),
+    dailyDigest: z.boolean(),
+    weeklyAnalytics: z.boolean(),
+}).strict();
 export const AgentProvisioningPayloadSchema = z.object({
     // tenantId is injected at root by @rello-platform/cascade::pushToSpokes
     // syncedAt is injected at root by @rello-platform/cascade::pushToSpokes
@@ -83,5 +112,6 @@ export const AgentProvisioningPayloadSchema = z.object({
     agent: AgentPayloadSchema,
     agentProfile: AgentProfilePayloadSchema.optional(),
     wizardAnswers: z.array(WizardAnswerPayloadSchema).optional(),
+    agentNotificationPreference: AgentNotificationPreferencePayloadSchema.nullable().optional(),
 }).strict();
 //# sourceMappingURL=payload.js.map

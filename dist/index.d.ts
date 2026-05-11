@@ -1,3 +1,3 @@
-export { AgentProvisioningPayloadSchema, AgentPayloadSchema, AgentProfilePayloadSchema, TenantBrandingPayloadSchema, WizardAnswerPayloadSchema, } from "./payload.js";
-export type { AgentProvisioningPayload, AgentPayload, AgentProfilePayload, TenantBrandingPayload, WizardAnswerPayload, } from "./payload.js";
+export { AgentProvisioningPayloadSchema, AgentPayloadSchema, AgentProfilePayloadSchema, TenantBrandingPayloadSchema, WizardAnswerPayloadSchema, AgentNotificationPreferencePayloadSchema, } from "./payload.js";
+export type { AgentProvisioningPayload, AgentPayload, AgentProfilePayload, TenantBrandingPayload, WizardAnswerPayload, AgentNotificationPreferencePayload, } from "./payload.js";
 //# sourceMappingURL=index.d.ts.map

@@ -76,6 +76,14 @@ const payload = {
 const result = await pushToSpokes(tenantId, "agent", payload, { spokes });
 ```
 
+### Wave 2 — Agent notification preferences (v0.2.0)
+
+The cascade payload extends with an optional `agentNotificationPreference`
+field carrying per-agent notification preferences (5 booleans: master
+toggles + cadence). See `AgentNotificationPreferencePayloadSchema` in
+`src/payload.ts`. Resolves D-14 per build doc § 8 Q5/Q9/Q10 locks
+(Walk 2 2026-05-11).
+
 ## Exports
 
 - `AgentProvisioningPayloadSchema` — the top-level wire contract.
@@ -83,10 +91,12 @@ const result = await pushToSpokes(tenantId, "agent", payload, { spokes });
 - `AgentProfilePayloadSchema` — the `agentProfile` sub-object (optional).
 - `TenantBrandingPayloadSchema` — the `tenantBranding` sub-object (required).
 - `WizardAnswerPayloadSchema` — single entry of the `wizardAnswers` array (optional).
+- `AgentNotificationPreferencePayloadSchema` — the `agentNotificationPreference` sub-object (optional, nullable; added v0.2.0).
 
 Each schema exports a matching `z.infer<>` TypeScript type:
 `AgentProvisioningPayload`, `AgentPayload`, `AgentProfilePayload`,
-`TenantBrandingPayload`, `WizardAnswerPayload`.
+`TenantBrandingPayload`, `WizardAnswerPayload`,
+`AgentNotificationPreferencePayload`.
 
 ## Contract
 

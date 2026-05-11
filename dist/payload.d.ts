@@ -70,6 +70,35 @@ export declare const WizardAnswerPayloadSchema: z.ZodObject<{
     question: z.ZodString;
     answer: z.ZodUnknown;
 }, z.core.$strict>;
+/**
+ * Canonical zod schema for per-Agent notification preferences cascaded
+ * from Rello to dispatching spokes. Resolves D-14 (per-tenant notification
+ * preferences spoke-by-spoke divergence) per build doc § 8 Q5 + Q9 + Q10
+ * locks (Walk 2 2026-05-11).
+ *
+ * Master toggles (cross-spoke reach):
+ *   - notifyByEmail, notifyBySms, notifyByPush
+ *
+ * Per-spoke cadence (digest controls):
+ *   - dailyDigest, weeklyAnalytics
+ *
+ * Defaults are application-side (Prisma @default) — Conservative per Example
+ * 6 in ~CASCADING-GUARDRAILS-AND-SETTINGS-README.md §11: notify-on-everything
+ * for first interaction class, opt-in for subsequent.
+ *
+ * Per-event toggles (leadAlerts, eventInvites, newsletterDigest,
+ * mortgageUpdates, marketAlerts, videoDrops, engagementSummary,
+ * escalationAlerts) DEFERRED to v0.2.x as per-spoke active-dispatch wiring
+ * specs need them (Q10 lock — per-spoke wiring is per-spoke Phase 1 KA
+ * territory, not this dispatch).
+ */
+export declare const AgentNotificationPreferencePayloadSchema: z.ZodObject<{
+    notifyByEmail: z.ZodBoolean;
+    notifyBySms: z.ZodBoolean;
+    notifyByPush: z.ZodBoolean;
+    dailyDigest: z.ZodBoolean;
+    weeklyAnalytics: z.ZodBoolean;
+}, z.core.$strict>;
 export declare const AgentProvisioningPayloadSchema: z.ZodObject<{
     tenantId: z.ZodString;
     syncedAt: z.ZodString;
@@ -135,10 +164,18 @@ export declare const AgentProvisioningPayloadSchema: z.ZodObject<{
         question: z.ZodString;
         answer: z.ZodUnknown;
     }, z.core.$strict>>>;
+    agentNotificationPreference: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+        notifyByEmail: z.ZodBoolean;
+        notifyBySms: z.ZodBoolean;
+        notifyByPush: z.ZodBoolean;
+        dailyDigest: z.ZodBoolean;
+        weeklyAnalytics: z.ZodBoolean;
+    }, z.core.$strict>>>;
 }, z.core.$strict>;
 export type AgentProvisioningPayload = z.infer<typeof AgentProvisioningPayloadSchema>;
 export type AgentPayload = z.infer<typeof AgentPayloadSchema>;
 export type AgentProfilePayload = z.infer<typeof AgentProfilePayloadSchema>;
 export type TenantBrandingPayload = z.infer<typeof TenantBrandingPayloadSchema>;
 export type WizardAnswerPayload = z.infer<typeof WizardAnswerPayloadSchema>;
+export type AgentNotificationPreferencePayload = z.infer<typeof AgentNotificationPreferencePayloadSchema>;
 //# sourceMappingURL=payload.d.ts.map

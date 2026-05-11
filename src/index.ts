@@ -4,6 +4,7 @@ export {
   AgentProfilePayloadSchema,
   TenantBrandingPayloadSchema,
   WizardAnswerPayloadSchema,
+  AgentNotificationPreferencePayloadSchema,
 } from "./payload.js";
 
 export type {
@@ -12,4 +13,5 @@ export type {
   AgentProfilePayload,
   TenantBrandingPayload,
   WizardAnswerPayload,
+  AgentNotificationPreferencePayload,
 } from "./payload.js";

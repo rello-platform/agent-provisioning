@@ -4,6 +4,7 @@ import {
   AgentProvisioningPayloadSchema,
   AgentPayloadSchema,
   TenantBrandingPayloadSchema,
+  AgentNotificationPreferencePayloadSchema,
 } from "./index.js";
 
 test("AgentProvisioningPayloadSchema accepts a minimal valid payload", () => {
@@ -109,4 +110,84 @@ test("force flag must be literal-true if present", () => {
   };
   assert.equal(AgentProvisioningPayloadSchema.safeParse({ ...base, force: true }).success, true);
   assert.equal(AgentProvisioningPayloadSchema.safeParse({ ...base, force: false }).success, false);
+});
+
+test("AgentNotificationPreferencePayloadSchema accepts a complete preference set", () => {
+  const valid = {
+    notifyByEmail: true,
+    notifyBySms: false,
+    notifyByPush: true,
+    dailyDigest: true,
+    weeklyAnalytics: false,
+  };
+  const parsed = AgentNotificationPreferencePayloadSchema.safeParse(valid);
+  assert.equal(parsed.success, true);
+});
+
+test("AgentNotificationPreferencePayloadSchema rejects missing required fields", () => {
+  const partial = { notifyByEmail: true };
+  const parsed = AgentNotificationPreferencePayloadSchema.safeParse(partial);
+  assert.equal(parsed.success, false);
+});
+
+test("AgentNotificationPreferencePayloadSchema rejects unknown fields (strict)", () => {
+  const withExtra = {
+    notifyByEmail: true, notifyBySms: false, notifyByPush: false,
+    dailyDigest: true, weeklyAnalytics: false,
+    leadAlerts: true,  // not yet in v0.2.0
+  };
+  const parsed = AgentNotificationPreferencePayloadSchema.safeParse(withExtra);
+  assert.equal(parsed.success, false);
+});
+
+test("AgentProvisioningPayloadSchema accepts payload with agentNotificationPreference", () => {
+  const minimal = {
+    tenantId: "t_123",
+    syncedAt: "2026-05-11T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: {
+      relloAgentId: "a_123",
+      email: "agent@example.com",
+      firstName: "Test", lastName: "Agent",
+      slug: "test-agent", role: "AGENT", phone: null,
+    },
+    agentNotificationPreference: {
+      notifyByEmail: true, notifyBySms: false, notifyByPush: false,
+      dailyDigest: true, weeklyAnalytics: false,
+    },
+  };
+  assert.equal(AgentProvisioningPayloadSchema.safeParse(minimal).success, true);
+});
+
+test("AgentProvisioningPayloadSchema accepts payload WITHOUT agentNotificationPreference (optional)", () => {
+  const minimal = {
+    tenantId: "t_123",
+    syncedAt: "2026-05-11T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: {
+      relloAgentId: "a_123", email: "a@e.com",
+      firstName: "T", lastName: "A", slug: "t-a", role: "AGENT", phone: null,
+    },
+  };
+  assert.equal(AgentProvisioningPayloadSchema.safeParse(minimal).success, true);
+});
+
+test("AgentProvisioningPayloadSchema accepts agentNotificationPreference: null", () => {
+  const minimal = {
+    tenantId: "t_123",
+    syncedAt: "2026-05-11T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: {
+      relloAgentId: "a_123", email: "a@e.com",
+      firstName: "T", lastName: "A", slug: "t-a", role: "AGENT", phone: null,
+    },
+    agentNotificationPreference: null,
+  };
+  assert.equal(AgentProvisioningPayloadSchema.safeParse(minimal).success, true);
 });
