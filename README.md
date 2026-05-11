@@ -3,12 +3,11 @@
 Canonical zod schema for the Rello → spokes cascade payload (agent
 provisioning), Wave 1 of PLATFORM CASCADING SETTINGS ARCHITECTURE.
 
-v0.1.0 (this release) ships **schema-only** — no helpers, no
-network code. Spoke receivers (via
-`@rello-platform/cascade::mirrorReceiver`) and the Rello-side sender
-(via `@rello-platform/cascade::pushToSpokes`) import and parse
-against the same exported schemas, so the contract cannot drift
-across the cascade.
+Ships **schema-only** — no helpers, no network code. Spoke receivers
+(via `@rello-platform/cascade::mirrorReceiver`) and the Rello-side
+sender (via `@rello-platform/cascade::pushToSpokes`) import and parse
+against the same exported schemas, so the contract cannot drift across
+the cascade.
 
 ## Install
 
@@ -22,8 +21,19 @@ needs an `.npmrc`:
 Then:
 
 ```
-npm install @rello-platform/agent-provisioning
+npm install @rello-platform/agent-provisioning zod
 ```
+
+### Peer dependencies
+
+As of v0.1.1, `zod` is a **peer dependency** pinned to `^4.3.5` — the
+consumer installs and resolves its own zod copy, so the schema files
+in this package compile against the caller's zod. This eliminates the
+dual-zod-in-bundle risk and matches the Rello CRM pin + the
+`@rello-platform/oven-engagement` sibling pin so the cascade fleet
+shares a single zod major across every receiver and sender. v0.1.0
+declared zod under `dependencies@^3.23.0`; consumers should bump to
+v0.1.1 to align peers.
 
 ## Usage
 

@@ -1,6 +1,6 @@
 {
   "name": "@rello-platform/agent-provisioning",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Canonical zod schema for the Rello → spokes cascade payload.",
   "type": "module",
   "main": "./dist/index.js",
@@ -34,11 +34,12 @@
   "homepage": "https://github.com/rello-platform/agent-provisioning",
   "license": "UNLICENSED",
   "private": false,
-  "dependencies": {
-    "zod": "^3.23.0"
+  "peerDependencies": {
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@types/node": "^22.19.18",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "zod": "^4.3.5"
   }
 }
