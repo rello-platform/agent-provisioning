@@ -1,0 +1,44 @@
+{
+  "name": "@rello-platform/agent-provisioning",
+  "version": "0.1.0",
+  "description": "Canonical zod schema for the Rello → spokes cascade payload.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc -p tsconfig.test.json && node --test dist-test/**/*.test.js",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rello-platform/agent-provisioning.git"
+  },
+  "homepage": "https://github.com/rello-platform/agent-provisioning",
+  "license": "UNLICENSED",
+  "private": false,
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.18",
+    "typescript": "^5.6.3"
+  }
+}
