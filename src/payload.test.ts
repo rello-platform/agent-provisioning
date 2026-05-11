@@ -191,3 +191,45 @@ test("AgentProvisioningPayloadSchema accepts agentNotificationPreference: null",
   };
   assert.equal(AgentProvisioningPayloadSchema.safeParse(minimal).success, true);
 });
+
+test("AgentPayloadSchema accepts emailSignature when present", () => {
+  const agent = {
+    relloAgentId: "a_123", email: "a@e.com",
+    firstName: "T", lastName: "A", slug: "t-a", role: "AGENT", phone: null,
+    emailSignature: "Best regards,\nJane Smith | REALTOR®",
+  };
+  assert.equal(AgentPayloadSchema.safeParse(agent).success, true);
+});
+
+test("AgentPayloadSchema accepts emailSignature: null", () => {
+  const agent = {
+    relloAgentId: "a_123", email: "a@e.com",
+    firstName: "T", lastName: "A", slug: "t-a", role: "AGENT", phone: null,
+    emailSignature: null,
+  };
+  assert.equal(AgentPayloadSchema.safeParse(agent).success, true);
+});
+
+test("AgentPayloadSchema accepts agent WITHOUT emailSignature (optional)", () => {
+  const agent = {
+    relloAgentId: "a_123", email: "a@e.com",
+    firstName: "T", lastName: "A", slug: "t-a", role: "AGENT", phone: null,
+  };
+  assert.equal(AgentPayloadSchema.safeParse(agent).success, true);
+});
+
+test("AgentProvisioningPayloadSchema integration — agent has emailSignature", () => {
+  const minimal = {
+    tenantId: "t_123",
+    syncedAt: "2026-05-11T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: {
+      relloAgentId: "a_123", email: "a@e.com",
+      firstName: "T", lastName: "A", slug: "t-a", role: "AGENT", phone: null,
+      emailSignature: "Test signature",
+    },
+  };
+  assert.equal(AgentProvisioningPayloadSchema.safeParse(minimal).success, true);
+});

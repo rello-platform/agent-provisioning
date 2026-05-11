@@ -38,6 +38,7 @@ export declare const AgentPayloadSchema: z.ZodObject<{
     social: z.ZodOptional<z.ZodUnknown>;
     mloName: z.ZodOptional<z.ZodString>;
     mloNmls: z.ZodOptional<z.ZodString>;
+    emailSignature: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, z.core.$strict>;
 export declare const AgentProfilePayloadSchema: z.ZodObject<{
     specialtySentence: z.ZodOptional<z.ZodString>;
@@ -136,6 +137,7 @@ export declare const AgentProvisioningPayloadSchema: z.ZodObject<{
         social: z.ZodOptional<z.ZodUnknown>;
         mloName: z.ZodOptional<z.ZodString>;
         mloNmls: z.ZodOptional<z.ZodString>;
+        emailSignature: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     }, z.core.$strict>;
     agentProfile: z.ZodOptional<z.ZodObject<{
         specialtySentence: z.ZodOptional<z.ZodString>;

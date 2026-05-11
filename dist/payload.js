@@ -38,6 +38,10 @@ export const AgentPayloadSchema = z.object({
     social: z.unknown().optional(),
     mloName: z.string().optional(),
     mloNmls: z.string().optional(),
+    // Per Rello-canonical home (Rello.Agent.emailSignature) — D-5 resolution
+    // (build doc § 6 + Example 3). NS-side spoke-canonical legacy column
+    // retired in D-5.C-NS dispatch.
+    emailSignature: z.string().nullable().optional(),
 }).strict();
 export const AgentProfilePayloadSchema = z.object({
     specialtySentence: z.string().optional(),

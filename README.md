@@ -84,6 +84,13 @@ toggles + cadence). See `AgentNotificationPreferencePayloadSchema` in
 `src/payload.ts`. Resolves D-14 per build doc § 8 Q5/Q9/Q10 locks
 (Walk 2 2026-05-11).
 
+### D-5 — Agent email signature (v0.3.0)
+
+`AgentPayloadSchema` extends with optional+nullable `emailSignature` field
+(Rello-canonical per build doc § 6 D-5 / Example 3). NS-side spoke-
+canonical legacy column retired alongside in D-5.C-NS dispatch; other 9
+spokes ACCEPT-AND-IGNORE the field via strict zod parse.
+
 ## Exports
 
 - `AgentProvisioningPayloadSchema` — the top-level wire contract.
