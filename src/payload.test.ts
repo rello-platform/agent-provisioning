@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   AgentProvisioningPayloadSchema,
   AgentPayloadSchema,
+  AgentProfilePayloadSchema,
   TenantBrandingPayloadSchema,
   AgentNotificationPreferencePayloadSchema,
 } from "./index.js";
@@ -232,4 +233,99 @@ test("AgentProvisioningPayloadSchema integration — agent has emailSignature", 
     },
   };
   assert.equal(AgentProvisioningPayloadSchema.safeParse(minimal).success, true);
+});
+
+// ── PFP MLO Mini-Wizard fields (v0.4.0 — SPEC-RELLO-AGENT-PROFILE-MLO-EXTENSION) ──
+
+const baseProfile = {
+  typicalClient: [],
+  areasServed: [],
+  designations: [],
+  avoidTopics: [],
+  emphasizeTopics: [],
+  sensitiveTopics: [],
+};
+
+test("AgentProfilePayloadSchema accepts all 7 PFP MLO fields with valid values", () => {
+  const profile = {
+    ...baseProfile,
+    licensedStates: ["UT", "ID", "NV"],
+    pfpDefaultLender: "Big Star Mortgage",
+    pfpDefaultLoanPrograms: ["CONV", "FHA", "VA"],
+    pfpDefaultRateSource: "MND Daily",
+    pfpEqualHousingLogoPlacement: "footer",
+    pfpDefaultCreditPullPreference: "soft",
+    pfpWizardCompletedAt: "2026-05-18T00:00:00.000Z",
+  };
+  assert.equal(AgentProfilePayloadSchema.safeParse(profile).success, true);
+});
+
+test("AgentProfilePayloadSchema accepts payload WITHOUT PFP MLO fields (optional)", () => {
+  assert.equal(AgentProfilePayloadSchema.safeParse(baseProfile).success, true);
+});
+
+test("AgentProfilePayloadSchema rejects licensedStates with non-2-letter code", () => {
+  const profile = { ...baseProfile, licensedStates: ["UT", "Utah"] };
+  assert.equal(AgentProfilePayloadSchema.safeParse(profile).success, false);
+});
+
+test("AgentProfilePayloadSchema rejects licensedStates with lowercase code", () => {
+  const profile = { ...baseProfile, licensedStates: ["ut"] };
+  assert.equal(AgentProfilePayloadSchema.safeParse(profile).success, false);
+});
+
+test("AgentProfilePayloadSchema rejects pfpDefaultLoanPrograms with off-list value", () => {
+  const profile = { ...baseProfile, pfpDefaultLoanPrograms: ["CONV", "REVERSE"] };
+  assert.equal(AgentProfilePayloadSchema.safeParse(profile).success, false);
+});
+
+test("AgentProfilePayloadSchema rejects pfpEqualHousingLogoPlacement off-list value", () => {
+  const profile = { ...baseProfile, pfpEqualHousingLogoPlacement: "sidebar" };
+  assert.equal(AgentProfilePayloadSchema.safeParse(profile).success, false);
+});
+
+test("AgentProfilePayloadSchema rejects pfpDefaultCreditPullPreference off-list value", () => {
+  const profile = { ...baseProfile, pfpDefaultCreditPullPreference: "tri-merge" };
+  assert.equal(AgentProfilePayloadSchema.safeParse(profile).success, false);
+});
+
+test("AgentProfilePayloadSchema accepts null values on nullable PFP fields", () => {
+  const profile = {
+    ...baseProfile,
+    pfpDefaultLender: null,
+    pfpDefaultRateSource: null,
+    pfpEqualHousingLogoPlacement: null,
+    pfpDefaultCreditPullPreference: null,
+    pfpWizardCompletedAt: null,
+  };
+  assert.equal(AgentProfilePayloadSchema.safeParse(profile).success, true);
+});
+
+test("AgentProfilePayloadSchema rejects pfpDefaultLender exceeding max(200)", () => {
+  const profile = { ...baseProfile, pfpDefaultLender: "x".repeat(201) };
+  assert.equal(AgentProfilePayloadSchema.safeParse(profile).success, false);
+});
+
+test("AgentProvisioningPayloadSchema integration — agentProfile carries PFP MLO fields", () => {
+  const payload = {
+    tenantId: "t_123",
+    syncedAt: "2026-05-18T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: {
+      relloAgentId: "a_123", email: "a@e.com",
+      firstName: "T", lastName: "A", slug: "t-a", role: "AGENT", phone: null,
+    },
+    agentProfile: {
+      ...baseProfile,
+      licensedStates: ["UT"],
+      pfpDefaultLender: "Big Star",
+      pfpDefaultLoanPrograms: ["CONV"],
+      pfpEqualHousingLogoPlacement: "footer",
+      pfpDefaultCreditPullPreference: "soft",
+      pfpWizardCompletedAt: "2026-05-18T00:00:00.000Z",
+    },
+  };
+  assert.equal(AgentProvisioningPayloadSchema.safeParse(payload).success, true);
 });

@@ -61,6 +61,29 @@ export declare const AgentProfilePayloadSchema: z.ZodObject<{
     newsletterTemplateId: z.ZodOptional<z.ZodString>;
     brandColors: z.ZodOptional<z.ZodUnknown>;
     leadSourceContext: z.ZodOptional<z.ZodString>;
+    licensedStates: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    pfpDefaultLender: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    pfpDefaultLoanPrograms: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+        CONV: "CONV";
+        FHA: "FHA";
+        VA: "VA";
+        USDA: "USDA";
+        JUMBO: "JUMBO";
+        NONQM: "NONQM";
+    }>>>;
+    pfpDefaultRateSource: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    pfpEqualHousingLogoPlacement: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+        header: "header";
+        footer: "footer";
+        both: "both";
+        none: "none";
+    }>>>;
+    pfpDefaultCreditPullPreference: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+        soft: "soft";
+        hard: "hard";
+        borrower_choice: "borrower_choice";
+    }>>>;
+    pfpWizardCompletedAt: z.ZodNullable<z.ZodOptional<z.ZodCoercedDate<unknown>>>;
 }, z.core.$strict>;
 export declare const TenantBrandingPayloadSchema: z.ZodObject<{
     terminology: z.ZodRecord<z.ZodString, z.ZodUnknown>;
@@ -160,6 +183,29 @@ export declare const AgentProvisioningPayloadSchema: z.ZodObject<{
         newsletterTemplateId: z.ZodOptional<z.ZodString>;
         brandColors: z.ZodOptional<z.ZodUnknown>;
         leadSourceContext: z.ZodOptional<z.ZodString>;
+        licensedStates: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        pfpDefaultLender: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        pfpDefaultLoanPrograms: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+            CONV: "CONV";
+            FHA: "FHA";
+            VA: "VA";
+            USDA: "USDA";
+            JUMBO: "JUMBO";
+            NONQM: "NONQM";
+        }>>>;
+        pfpDefaultRateSource: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        pfpEqualHousingLogoPlacement: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+            header: "header";
+            footer: "footer";
+            both: "both";
+            none: "none";
+        }>>>;
+        pfpDefaultCreditPullPreference: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+            soft: "soft";
+            hard: "hard";
+            borrower_choice: "borrower_choice";
+        }>>>;
+        pfpWizardCompletedAt: z.ZodNullable<z.ZodOptional<z.ZodCoercedDate<unknown>>>;
     }, z.core.$strict>>;
     wizardAnswers: z.ZodOptional<z.ZodArray<z.ZodObject<{
         questionId: z.ZodString;

@@ -1,4 +1,11 @@
 import { z } from "zod";
+// PFP MLO Mini-Wizard enum sets — verbatim from
+// ~/Rello/src/app/api/v1/agent-profile/route.ts:34-36 @ SHA 202fbbfe.
+// Source of truth lives at the Rello PATCH validator; mirrored here so the
+// canonical schema rejects out-of-set values at the spoke receiver's safeParse.
+const LOAN_PROGRAMS = ["CONV", "FHA", "VA", "USDA", "JUMBO", "NONQM"];
+const EQUAL_HOUSING_PLACEMENTS = ["header", "footer", "both", "none"];
+const CREDIT_PULL_PREFERENCES = ["soft", "hard", "borrower_choice"];
 /**
  * Canonical zod schema for the Rello → spokes cascade payload.
  *
@@ -64,6 +71,18 @@ export const AgentProfilePayloadSchema = z.object({
     newsletterTemplateId: z.string().optional(),
     brandColors: z.unknown().optional(),
     leadSourceContext: z.string().optional(),
+    // ── PFP MLO Mini-Wizard fields (SPEC-RELLO-AGENT-PROFILE-MLO-EXTENSION) ──
+    // Canonical home: ~/Rello/prisma/schema.prisma:10300-10306 @ SHA 202fbbfe.
+    // Validator mirrored from ~/Rello/src/app/api/v1/agent-profile/route.ts:119-125.
+    // Read by PFP Mini-Wizard Step 2, SPEC-PFP-MILO-LETTER-COMPOSITION,
+    // SPEC-PFP-MLO-COMPLIANCE-GATES via push-agent.ts → spoke receiver.
+    licensedStates: z.array(z.string().length(2).regex(/^[A-Z]{2}$/)).optional(),
+    pfpDefaultLender: z.string().max(200).optional().nullable(),
+    pfpDefaultLoanPrograms: z.array(z.enum(LOAN_PROGRAMS)).optional(),
+    pfpDefaultRateSource: z.string().max(100).optional().nullable(),
+    pfpEqualHousingLogoPlacement: z.enum(EQUAL_HOUSING_PLACEMENTS).optional().nullable(),
+    pfpDefaultCreditPullPreference: z.enum(CREDIT_PULL_PREFERENCES).optional().nullable(),
+    pfpWizardCompletedAt: z.coerce.date().optional().nullable(),
 }).strict();
 export const TenantBrandingPayloadSchema = z.object({
     terminology: z.record(z.string(), z.unknown()),
