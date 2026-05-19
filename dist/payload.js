@@ -21,6 +21,14 @@ const CREDIT_PULL_PREFERENCES = ["soft", "hard", "borrower_choice"];
  * spoke receiver (per `mirrorReceiver`'s `safeParse`). This closes the
  * D-7 (NS dropped tenantBranding) / D-8 (HS asymmetric writer) /
  * D-9 (HS physicalAddress Json) drift class.
+ *
+ * v0.5.0 — compositional versioned exports per CSA Wave-1E (DL4 +
+ * DL5 strict-additive cadence). Each released payload version ships
+ * a named export `*PayloadSchema_v0_N_0` composed via `.extend()`
+ * from the previous version. `projectPayloadForVersion` (see
+ * ./project-for-version.ts) uses `.shape` introspection on these
+ * versioned schemas to strip fields the target spoke's pinned
+ * version does not declare.
  */
 export const AgentPayloadSchema = z.object({
     relloAgentId: z.string().min(1),
@@ -50,7 +58,8 @@ export const AgentPayloadSchema = z.object({
     // retired in D-5.C-NS dispatch.
     emailSignature: z.string().nullable().optional(),
 }).strict();
-export const AgentProfilePayloadSchema = z.object({
+// ── v0.3.0 baseline — pre-PFP MLO fields (frozen). ──────────────────────────
+export const AgentProfilePayloadSchema_v0_3_0 = z.object({
     specialtySentence: z.string().optional(),
     experienceStatement: z.string().optional(),
     typicalClient: z.array(z.string()),
@@ -71,11 +80,13 @@ export const AgentProfilePayloadSchema = z.object({
     newsletterTemplateId: z.string().optional(),
     brandColors: z.unknown().optional(),
     leadSourceContext: z.string().optional(),
-    // ── PFP MLO Mini-Wizard fields (SPEC-RELLO-AGENT-PROFILE-MLO-EXTENSION) ──
-    // Canonical home: ~/Rello/prisma/schema.prisma:10300-10306 @ SHA 202fbbfe.
-    // Validator mirrored from ~/Rello/src/app/api/v1/agent-profile/route.ts:119-125.
-    // Read by PFP Mini-Wizard Step 2, SPEC-PFP-MILO-LETTER-COMPOSITION,
-    // SPEC-PFP-MLO-COMPLIANCE-GATES via push-agent.ts → spoke receiver.
+}).strict();
+// ── v0.4.0 — adds 7 PFP MLO Mini-Wizard fields via .extend(). ───────────────
+// Canonical home: ~/Rello/prisma/schema.prisma:10300-10306 @ SHA 202fbbfe.
+// Validator mirrored from ~/Rello/src/app/api/v1/agent-profile/route.ts:119-125.
+// Read by PFP Mini-Wizard Step 2, SPEC-PFP-MILO-LETTER-COMPOSITION,
+// SPEC-PFP-MLO-COMPLIANCE-GATES via push-agent.ts → spoke receiver.
+export const AgentProfilePayloadSchema_v0_4_0 = AgentProfilePayloadSchema_v0_3_0.extend({
     licensedStates: z.array(z.string().length(2).regex(/^[A-Z]{2}$/)).optional(),
     pfpDefaultLender: z.string().max(200).optional().nullable(),
     pfpDefaultLoanPrograms: z.array(z.enum(LOAN_PROGRAMS)).optional(),
@@ -84,6 +95,9 @@ export const AgentProfilePayloadSchema = z.object({
     pfpDefaultCreditPullPreference: z.enum(CREDIT_PULL_PREFERENCES).optional().nullable(),
     pfpWizardCompletedAt: z.coerce.date().optional().nullable(),
 }).strict();
+// "Latest" alias points to newest compositional export. Preserved for
+// backward-compatible imports per Build Plan Phase 1 step 2.
+export const AgentProfilePayloadSchema = AgentProfilePayloadSchema_v0_4_0;
 export const TenantBrandingPayloadSchema = z.object({
     terminology: z.record(z.string(), z.unknown()),
     teamRoleCopy: z.record(z.string(), z.unknown()),
@@ -122,7 +136,8 @@ export const AgentNotificationPreferencePayloadSchema = z.object({
     dailyDigest: z.boolean(),
     weeklyAnalytics: z.boolean(),
 }).strict();
-export const AgentProvisioningPayloadSchema = z.object({
+// ── v0.3.0 baseline — outer schema with v0.3.0 AgentProfile. ────────────────
+export const AgentProvisioningPayloadSchema_v0_3_0 = z.object({
     // tenantId is injected at root by @rello-platform/cascade::pushToSpokes
     // syncedAt is injected at root by @rello-platform/cascade::pushToSpokes
     // force is injected at root by @rello-platform/cascade::pushToSpokes (optional)
@@ -133,8 +148,26 @@ export const AgentProvisioningPayloadSchema = z.object({
     physicalAddress: z.string().nullable(),
     tenantBranding: TenantBrandingPayloadSchema,
     agent: AgentPayloadSchema,
-    agentProfile: AgentProfilePayloadSchema.optional(),
+    agentProfile: AgentProfilePayloadSchema_v0_3_0.optional(),
     wizardAnswers: z.array(WizardAnswerPayloadSchema).optional(),
     agentNotificationPreference: AgentNotificationPreferencePayloadSchema.nullable().optional(),
 }).strict();
+// ── v0.4.0 — swaps AgentProfile_v0_3_0 for AgentProfile_v0_4_0. ─────────────
+export const AgentProvisioningPayloadSchema_v0_4_0 = AgentProvisioningPayloadSchema_v0_3_0.extend({
+    agentProfile: AgentProfilePayloadSchema_v0_4_0.optional(),
+}).strict();
+// "Latest" alias points to newest compositional export. Preserved for
+// backward-compatible imports per Build Plan Phase 1 step 2.
+export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_4_0;
+// Codified fallback for unprobed spokes (DL6).
+export const BASELINE_SCHEMA_VERSION = "v0.3.0";
+// Heartbeat response value — the schema version this PACKAGE ships (DL1).
+// Bumped at each release alongside `package.json` version.
+export const PACKAGE_SCHEMA_VERSION = "v0.5.0";
+// Version registry — maps semver string → schema object. Consumed by
+// projectPayloadForVersion. Add new versions here as they ship.
+export const VERSIONED_SCHEMAS = {
+    "v0.3.0": AgentProvisioningPayloadSchema_v0_3_0,
+    "v0.4.0": AgentProvisioningPayloadSchema_v0_4_0,
+};
 //# sourceMappingURL=payload.js.map
