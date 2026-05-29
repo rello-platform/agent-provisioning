@@ -17,7 +17,12 @@ import { VERSIONED_SCHEMAS, BASELINE_SCHEMA_VERSION, type SupportedSchemaVersion
  *   - `resolvedVersion`: the version the helper actually projected against
  *     (matches `targetVersion` when known; else `BASELINE_SCHEMA_VERSION`)
  */
-const NESTED_KEYS = ["agentProfile"] as const;
+// `agent` joined `agentProfile` here in v0.6.0 (T5D): the agent block became
+// compositionally versioned (added `relloUserId`), so it must be projected
+// per-target like agentProfile — a spoke pinned < v0.6.0 has no `relloUserId`
+// in its agent shape, so projection strips it and the spoke's `.strict()`
+// receiver does not 400.
+const NESTED_KEYS = ["agentProfile", "agent"] as const;
 type NestedKey = typeof NESTED_KEYS[number];
 
 function isNestedKey(key: string): key is NestedKey {
