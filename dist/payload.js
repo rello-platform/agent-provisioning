@@ -29,8 +29,24 @@ const CREDIT_PULL_PREFERENCES = ["soft", "hard", "borrower_choice"];
  * ./project-for-version.ts) uses `.shape` introspection on these
  * versioned schemas to strip fields the target spoke's pinned
  * version does not declare.
+ *
+ * v0.6.0 — adds `agent.relloUserId` (the owning Rello `User.id` / OIDC `sub`),
+ * disambiguating the two cross-app identity spaces (`relloAgentId` = Agent.id
+ * cuid vs `relloUserId` = User.id) that collided at the OHH events Bearer
+ * seam. The `agent` block is now compositionally versioned (added to
+ * `NESTED_KEYS`) so projection strips `relloUserId` for spokes pinned
+ * < v0.6.0. Provenance: DISPATCH-T5D + DISCOVERED-PFP-OHH-RELLOAGENTID-
+ * IDENTITY-CONTRACT-CONFLICT-260528.
  */
-export const AgentPayloadSchema = z.object({
+// ── v0.3.0 baseline agent block (frozen across v0.3.0 → v0.5.0 — the agent
+//    object did not change across those releases). ─────────────────────────
+//
+// IDENTITY CONTRACT — `relloAgentId` is the Rello `Agent.id` (cuid). This is
+// the cascade / provisioning / signals identity space (matched against the
+// spoke `User.relloAgentId` column and the `agent.profile_updated` webhook).
+// See `AgentPayloadSchema_v0_6_0` for the companion `relloUserId` (User.id /
+// OIDC-sub space) added in v0.6.0.
+export const AgentPayloadSchema_v0_3_0 = z.object({
     relloAgentId: z.string().min(1),
     email: z.string().email(),
     firstName: z.string(),
@@ -58,6 +74,48 @@ export const AgentPayloadSchema = z.object({
     // retired in D-5.C-NS dispatch.
     emailSignature: z.string().nullable().optional(),
 }).strict();
+// ── v0.6.0 — adds `relloUserId` via .extend(). ──────────────────────────────
+//
+// CANONICAL IDENTITY-SPACE CONTRACT (source of truth — DISPATCH-T5D, the
+// `relloAgentId`-identity-contract resolution, 2026-05-28):
+//
+//   relloAgentId : Rello `Agent.id` (cuid). Used by cascade / provisioning /
+//                  signals consumers operating on Agent-shaped entities
+//                  (spoke `User.relloAgentId` mirror; `agent.profile_updated`
+//                  webhook; `realtor-prospect-intake`).
+//   relloUserId  : Rello `User.id` (`user_*`) — the owning login User, which
+//                  is exactly the value Rello OIDC issues as the `sub` claim
+//                  (Rello issues NO `agent_id` claim). Used by OIDC-sourced
+//                  consumers — PFP cockpit (`AgentConfig.relloAgentId` is
+//                  sourced from the OIDC sub = a User.id), spoke-session
+//                  bearers, and the OHH events Bearer resolution. Matched
+//                  against the spoke `User.relloUserId` column.
+//
+// OPTIONAL + NULLABLE — the durable identity contract is enforced at the
+// PRODUCER, not by schema-requiredness:
+//   - Rello's `push-agent.ts` ALWAYS populates `relloUserId` for v0.6.0 sends
+//     (= `agent.userId`, the owning login User), so OHH always receives it.
+//   - `nullable`: an Agent may have no login User (`Rello.Agent.userId
+//     String? @unique`); login-less agents carry `null` and cannot originate
+//     OIDC-sourced (User.id-keyed) calls anyway.
+//   - `optional`: preserves the package's strict-additive CSA cadence (DL5) —
+//     a pre-v0.6.0-shaped payload still parses under the latest schema (see
+//     the "latest alias parses v0.4.0 payload" round-trip test), exactly as
+//     every v0.4.0 PFP field is optional. A required field here would be a
+//     back-compat break, not a strict-additive extension.
+//   - `min(1)`: when present, the value must be non-empty (no `""` sentinel).
+//
+// Versioning the `agent` block (rather than extending the shared baseline) is
+// load-bearing for CSA: `projectPayloadForVersion` (project-for-version.ts,
+// `agent` ∈ NESTED_KEYS) strips `relloUserId` for any spoke pinned < v0.6.0,
+// so that spoke's `.strict()` receiver never 400s on the novel field. This is
+// the durable form of the v0.4.0 lesson (DISCOVERED-CSA-V040-STRICT-RECEIVER-
+// REJECTS-9-SPOKES-WAVE-1B-FOLLOWUP-GAP-260519).
+export const AgentPayloadSchema_v0_6_0 = AgentPayloadSchema_v0_3_0.extend({
+    relloUserId: z.string().min(1).nullable().optional(),
+}).strict();
+// "Latest" alias points to newest compositional export.
+export const AgentPayloadSchema = AgentPayloadSchema_v0_6_0;
 // ── v0.3.0 baseline — pre-PFP MLO fields (frozen). ──────────────────────────
 export const AgentProfilePayloadSchema_v0_3_0 = z.object({
     specialtySentence: z.string().optional(),
@@ -147,7 +205,7 @@ export const AgentProvisioningPayloadSchema_v0_3_0 = z.object({
     action: z.enum(["add", "remove", "update"]),
     physicalAddress: z.string().nullable(),
     tenantBranding: TenantBrandingPayloadSchema,
-    agent: AgentPayloadSchema,
+    agent: AgentPayloadSchema_v0_3_0,
     agentProfile: AgentProfilePayloadSchema_v0_3_0.optional(),
     wizardAnswers: z.array(WizardAnswerPayloadSchema).optional(),
     agentNotificationPreference: AgentNotificationPreferencePayloadSchema.nullable().optional(),
@@ -156,18 +214,34 @@ export const AgentProvisioningPayloadSchema_v0_3_0 = z.object({
 export const AgentProvisioningPayloadSchema_v0_4_0 = AgentProvisioningPayloadSchema_v0_3_0.extend({
     agentProfile: AgentProfilePayloadSchema_v0_4_0.optional(),
 }).strict();
+// ── v0.6.0 — swaps the agent block for AgentPayloadSchema_v0_6_0 (adds
+//    `relloUserId`). agentProfile stays at v0.4.0. ─────────────────────────
+// (v0.5.0 was infra-only — compositional exports + projectPayloadForVersion —
+// with NO payload-shape change, so the next shape change is v0.6.0.)
+export const AgentProvisioningPayloadSchema_v0_6_0 = AgentProvisioningPayloadSchema_v0_4_0.extend({
+    agent: AgentPayloadSchema_v0_6_0,
+}).strict();
 // "Latest" alias points to newest compositional export. Preserved for
 // backward-compatible imports per Build Plan Phase 1 step 2.
-export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_4_0;
+export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_6_0;
 // Codified fallback for unprobed spokes (DL6).
 export const BASELINE_SCHEMA_VERSION = "v0.3.0";
 // Heartbeat response value — the schema version this PACKAGE ships (DL1).
 // Bumped at each release alongside `package.json` version.
-export const PACKAGE_SCHEMA_VERSION = "v0.5.0";
+export const PACKAGE_SCHEMA_VERSION = "v0.6.0";
 // Version registry — maps semver string → schema object. Consumed by
 // projectPayloadForVersion. Add new versions here as they ship.
 export const VERSIONED_SCHEMAS = {
     "v0.3.0": AgentProvisioningPayloadSchema_v0_3_0,
     "v0.4.0": AgentProvisioningPayloadSchema_v0_4_0,
+    // v0.5.0 was an infra-only release (compositional versioned exports +
+    // projectPayloadForVersion) — its payload SHAPE is identical to v0.4.0.
+    // Registering it here maps a v0.5.0-pinned spoke to the correct schema
+    // instead of silently falling back to BASELINE_SCHEMA_VERSION (v0.3.0),
+    // which would wrongly strip the v0.4.0 PFP MLO fields from that spoke's
+    // projected payload. (Latent gap before T5D — no spoke had reached v0.5.0
+    // except those probed pre-fix; registered for correctness.)
+    "v0.5.0": AgentProvisioningPayloadSchema_v0_4_0,
+    "v0.6.0": AgentProvisioningPayloadSchema_v0_6_0,
 };
 //# sourceMappingURL=payload.js.map

@@ -2,11 +2,31 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   AgentProvisioningPayloadSchema,
+  AgentProvisioningPayloadSchema_v0_3_0,
+  AgentProvisioningPayloadSchema_v0_6_0,
   AgentPayloadSchema,
+  AgentPayloadSchema_v0_3_0,
+  AgentPayloadSchema_v0_6_0,
   AgentProfilePayloadSchema,
   TenantBrandingPayloadSchema,
   AgentNotificationPreferencePayloadSchema,
+  PACKAGE_SCHEMA_VERSION,
+  projectPayloadForVersion,
 } from "./index.js";
+
+// Shared minimal agent fixture for the latest (v0.6.0) schema — carries the
+// required `relloUserId` (a Rello User.id; the value Rello OIDC issues as
+// `sub`). Use this in any v0.6.0 / latest-schema fixture.
+const AGENT_V6 = {
+  relloAgentId: "a_123",
+  email: "a@e.com",
+  firstName: "T",
+  lastName: "A",
+  slug: "t-a",
+  role: "AGENT",
+  phone: null,
+  relloUserId: "user_123",
+};
 
 test("AgentProvisioningPayloadSchema accepts a minimal valid payload", () => {
   const minimal = {
@@ -328,4 +348,126 @@ test("AgentProvisioningPayloadSchema integration — agentProfile carries PFP ML
     },
   };
   assert.equal(AgentProvisioningPayloadSchema.safeParse(payload).success, true);
+});
+
+// ── v0.6.0 — relloUserId identity-space disambiguation (DISPATCH-T5D) ────────
+
+test("PACKAGE_SCHEMA_VERSION is v0.6.0", () => {
+  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.6.0");
+});
+
+test("v0.6.0 agent schema accepts a string relloUserId", () => {
+  assert.equal(
+    AgentPayloadSchema_v0_6_0.safeParse({ ...AGENT_V6, relloUserId: "user_abc" }).success,
+    true,
+  );
+});
+
+test("v0.6.0 agent schema accepts relloUserId: null (login-less agent)", () => {
+  assert.equal(
+    AgentPayloadSchema_v0_6_0.safeParse({ ...AGENT_V6, relloUserId: null }).success,
+    true,
+  );
+});
+
+test("v0.6.0 agent schema accepts agent WITHOUT relloUserId (optional — strict-additive cadence, DL5)", () => {
+  const { relloUserId, ...withoutUserId } = AGENT_V6;
+  void relloUserId;
+  assert.equal(AgentPayloadSchema_v0_6_0.safeParse(withoutUserId).success, true);
+});
+
+test("v0.6.0 agent schema rejects empty-string relloUserId (min(1))", () => {
+  assert.equal(
+    AgentPayloadSchema_v0_6_0.safeParse({ ...AGENT_V6, relloUserId: "" }).success,
+    false,
+  );
+});
+
+test("BACK-COMPAT: v0.3.0 agent schema REJECTS relloUserId (strict — field is genuinely versioned, not leaked into old schema)", () => {
+  const { relloUserId, ...baseline } = AGENT_V6;
+  void relloUserId;
+  // baseline (no relloUserId) validates against v0.3.0 ...
+  assert.equal(AgentPayloadSchema_v0_3_0.safeParse(baseline).success, true);
+  // ... but adding relloUserId to a v0.3.0 agent is a strict-reject.
+  assert.equal(AgentPayloadSchema_v0_3_0.safeParse(AGENT_V6).success, false);
+});
+
+test("latest AgentPayloadSchema === v0.6.0 (accepts relloUserId; back-compatible without it)", () => {
+  const { relloUserId, ...baseline } = AGENT_V6;
+  void relloUserId;
+  // strict-additive: latest still parses a pre-v0.6.0 agent (no relloUserId) ...
+  assert.equal(AgentPayloadSchema.safeParse(baseline).success, true);
+  // ... and accepts the new field.
+  assert.equal(AgentPayloadSchema.safeParse(AGENT_V6).success, true);
+});
+
+test("v0.6.0 outer schema integration — full payload with agent.relloUserId", () => {
+  const payload = {
+    tenantId: "t_123",
+    syncedAt: "2026-05-28T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: { ...AGENT_V6, relloUserId: "user_1774748302563_80h3ay" },
+  };
+  assert.equal(AgentProvisioningPayloadSchema_v0_6_0.safeParse(payload).success, true);
+});
+
+// ── Projection (project-for-version.ts) — `agent` ∈ NESTED_KEYS ──────────────
+
+function fullV6Payload() {
+  return {
+    tenantId: "t_123",
+    syncedAt: "2026-05-28T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: { ...AGENT_V6, relloUserId: "user_abc" },
+    agentProfile: {
+      ...baseProfile,
+      licensedStates: ["UT"],
+      pfpDefaultLender: "Big Star",
+    },
+  };
+}
+
+test("projection to v0.6.0 KEEPS agent.relloUserId", () => {
+  const { projected, omittedFields, resolvedVersion } = projectPayloadForVersion(
+    fullV6Payload(),
+    "v0.6.0",
+  );
+  assert.equal(resolvedVersion, "v0.6.0");
+  assert.equal((projected.agent as Record<string, unknown>).relloUserId, "user_abc");
+  assert.equal(omittedFields.includes("agent.relloUserId"), false);
+});
+
+test("projection to v0.4.0 STRIPS agent.relloUserId (spoke pinned < v0.6.0 never sees the novel field)", () => {
+  const { projected, omittedFields, resolvedVersion } = projectPayloadForVersion(
+    fullV6Payload(),
+    "v0.4.0",
+  );
+  assert.equal(resolvedVersion, "v0.4.0");
+  assert.equal("relloUserId" in (projected.agent as Record<string, unknown>), false);
+  assert.equal(omittedFields.includes("agent.relloUserId"), true);
+  // v0.4.0 PFP profile fields are still retained.
+  assert.equal((projected.agentProfile as Record<string, unknown>).pfpDefaultLender, "Big Star");
+});
+
+test("projection to v0.5.0 maps to the v0.4.0-shape schema (NOT baseline v0.3.0) — keeps PFP fields, strips relloUserId", () => {
+  const { projected, omittedFields, resolvedVersion } = projectPayloadForVersion(
+    fullV6Payload(),
+    "v0.5.0",
+  );
+  assert.equal(resolvedVersion, "v0.5.0");
+  // The v0.5.0 registration fix: PFP MLO fields survive (would be stripped if
+  // v0.5.0 fell back to baseline v0.3.0).
+  assert.equal((projected.agentProfile as Record<string, unknown>).pfpDefaultLender, "Big Star");
+  // relloUserId still stripped (v0.5.0 agent shape is the baseline).
+  assert.equal(omittedFields.includes("agent.relloUserId"), true);
+});
+
+test("projection to an unknown/null version falls back to BASELINE (v0.3.0) and strips both relloUserId and PFP fields", () => {
+  const { omittedFields, resolvedVersion } = projectPayloadForVersion(fullV6Payload(), null);
+  assert.equal(resolvedVersion, "v0.3.0");
+  assert.equal(omittedFields.includes("agent.relloUserId"), true);
 });
