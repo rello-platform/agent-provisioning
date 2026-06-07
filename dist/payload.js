@@ -37,6 +37,21 @@ const CREDIT_PULL_PREFERENCES = ["soft", "hard", "borrower_choice"];
  * `NESTED_KEYS`) so projection strips `relloUserId` for spokes pinned
  * < v0.6.0. Provenance: DISPATCH-T5D + DISCOVERED-PFP-OHH-RELLOAGENTID-
  * IDENTITY-CONTRACT-CONFLICT-260528.
+ *
+ * v0.7.0 — DUAL-LICENSE (MLO + RE) IDENTITY P3 (wire contract). Adds
+ * `agent.roles` (free-text string[] dual signal, e.g. ["MLO","RE"]) and
+ * `agent.licenses` ({ mlo?, re? } — one optional strict sub-object per
+ * license type, mirroring the active rows of the Rello `AgentLicense`
+ * canonical table). Both live INSIDE the already-versioned `agent` block, so
+ * `projectPayloadForVersion` strips them whole for any spoke pinned < v0.7.0
+ * (their `agent.shape` lacks the keys → `.strict()` receiver never 400s; the
+ * laggard keeps the flat `agent.{nmlsNumber,licenseNumber,brokerage*}` mirror
+ * the producer continues to populate). Provenance: SPEC-P3-WIRE-CONTRACT.md.
+ *
+ * VERSION-CORRECTION NOTE (BR-8 "canonical-latest = latest git TAG"): the
+ * workstream feature/audit docs name this bump "v0.6.0 (additive licenses)" —
+ * that is STALE. v0.6.0 was already shipped for `relloUserId` (a DIFFERENT
+ * change). The dual-license additive bump is therefore **v0.7.0**.
  */
 // ── v0.3.0 baseline agent block (frozen across v0.3.0 → v0.5.0 — the agent
 //    object did not change across those releases). ─────────────────────────
@@ -114,8 +129,65 @@ export const AgentPayloadSchema_v0_3_0 = z.object({
 export const AgentPayloadSchema_v0_6_0 = AgentPayloadSchema_v0_3_0.extend({
     relloUserId: z.string().min(1).nullable().optional(),
 }).strict();
+// ── v0.7.0 — DUAL-LICENSE (MLO + RE): adds `roles` + `licenses`. ────────────
+//
+// SOURCE OF TRUTH: the active rows of the Rello `AgentLicense` canonical table
+// (one row per (agent, type); SPEC-P0-DATA-MODEL §1.2). The wire mirrors the
+// ACTIVE facets — one optional sub-object per license type.
+//
+//   roles    : free-text string[] — e.g. ["MLO"], ["RE"], ["MLO","RE"] for a
+//              dual agent. Derived from the agent's ACTIVE AgentLicense rows.
+//              The canonical dual signal. Additive + free-text = non-breaking
+//              (the existing `role: z.string()` is also free-text). The
+//              singular `role` stays for back-compat; `roles` is the additive
+//              dual signal a v0.7.0+ receiver reads to detect a dual agent.
+//
+//   licenses : { mlo?, re? } — per-type identity. Each facet is `.strict()`
+//              (package convention — an unknown sub-key surfaces at the
+//              producer's own InnerPayloadSchema.safeParse, not silently
+//              riding along) and `.optional()` (a single-hat agent omits the
+//              other facet; a brand-new licenseless agent omits `licenses`).
+//
+// Field meanings (SPEC-P3 §1.2, P0 shared-column design — `type` disambiguates):
+//   mlo.nmlsNumber  = AgentLicense(MLO).nmlsNumber   (agent NMLS #)
+//   mlo.states      = AgentLicense(MLO).states       (loan-origination states)
+//   mlo.firmName    = AgentLicense(MLO).firmName     (mortgage company)
+//   mlo.firmLicense = AgentLicense(MLO).firmLicense  (company NMLS #)
+//   mlo.firmLogoUrl = AgentLicense(MLO).firmLogoUrl  (mortgage-company logo)
+//   re.licenseNumber= AgentLicense(RE).licenseNumber (state RE license #)
+//   re.states       = AgentLicense(RE).states        (RE licensed states)
+//   re.firmName     = AgentLicense(RE).firmName      (brokerage)
+//   re.firmLicense  = AgentLicense(RE).firmLicense   (brokerage license #)
+//   re.firmLogoUrl  = AgentLicense(RE).firmLogoUrl   (brokerage logo)
+//
+// PROJECTION: `roles`/`licenses` are NEW keys in the v0.7.0 `agent.shape`.
+// Because `agent` ∈ NESTED_KEYS (project-for-version.ts) and the machine
+// recurses EXACTLY one level, a spoke pinned < v0.7.0 has neither key in its
+// projected `agent.shape` → BOTH are stripped WHOLE (the `{mlo,re}` inner
+// structure is NOT independently projected — it rides or strips as one unit).
+// The laggard then keeps only the flat mirror (`agent.nmlsNumber`,
+// `licenseNumber`, `brokerage*`) the producer continues to populate.
+export const AgentPayloadSchema_v0_7_0 = AgentPayloadSchema_v0_6_0.extend({
+    roles: z.array(z.string()).optional(),
+    licenses: z.object({
+        mlo: z.object({
+            nmlsNumber: z.string().optional(),
+            states: z.array(z.string()),
+            firmName: z.string().optional(),
+            firmLicense: z.string().optional(),
+            firmLogoUrl: z.string().optional(),
+        }).strict().optional(),
+        re: z.object({
+            licenseNumber: z.string().optional(),
+            states: z.array(z.string()),
+            firmName: z.string().optional(),
+            firmLicense: z.string().optional(),
+            firmLogoUrl: z.string().optional(),
+        }).strict().optional(),
+    }).strict().optional(),
+}).strict();
 // "Latest" alias points to newest compositional export.
-export const AgentPayloadSchema = AgentPayloadSchema_v0_6_0;
+export const AgentPayloadSchema = AgentPayloadSchema_v0_7_0;
 // ── v0.3.0 baseline — pre-PFP MLO fields (frozen). ──────────────────────────
 export const AgentProfilePayloadSchema_v0_3_0 = z.object({
     specialtySentence: z.string().optional(),
@@ -221,14 +293,19 @@ export const AgentProvisioningPayloadSchema_v0_4_0 = AgentProvisioningPayloadSch
 export const AgentProvisioningPayloadSchema_v0_6_0 = AgentProvisioningPayloadSchema_v0_4_0.extend({
     agent: AgentPayloadSchema_v0_6_0,
 }).strict();
+// ── v0.7.0 — swaps the agent block for AgentPayloadSchema_v0_7_0 (adds
+//    `roles` + `licenses`). agentProfile stays at v0.4.0. ───────────────────
+export const AgentProvisioningPayloadSchema_v0_7_0 = AgentProvisioningPayloadSchema_v0_6_0.extend({
+    agent: AgentPayloadSchema_v0_7_0,
+}).strict();
 // "Latest" alias points to newest compositional export. Preserved for
 // backward-compatible imports per Build Plan Phase 1 step 2.
-export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_6_0;
+export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_7_0;
 // Codified fallback for unprobed spokes (DL6).
 export const BASELINE_SCHEMA_VERSION = "v0.3.0";
 // Heartbeat response value — the schema version this PACKAGE ships (DL1).
 // Bumped at each release alongside `package.json` version.
-export const PACKAGE_SCHEMA_VERSION = "v0.6.0";
+export const PACKAGE_SCHEMA_VERSION = "v0.7.0";
 // Version registry — maps semver string → schema object. Consumed by
 // projectPayloadForVersion. Add new versions here as they ship.
 export const VERSIONED_SCHEMAS = {
@@ -243,5 +320,6 @@ export const VERSIONED_SCHEMAS = {
     // except those probed pre-fix; registered for correctness.)
     "v0.5.0": AgentProvisioningPayloadSchema_v0_4_0,
     "v0.6.0": AgentProvisioningPayloadSchema_v0_6_0,
+    "v0.7.0": AgentProvisioningPayloadSchema_v0_7_0,
 };
 //# sourceMappingURL=payload.js.map

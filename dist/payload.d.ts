@@ -30,6 +30,21 @@ import { z } from "zod";
  * `NESTED_KEYS`) so projection strips `relloUserId` for spokes pinned
  * < v0.6.0. Provenance: DISPATCH-T5D + DISCOVERED-PFP-OHH-RELLOAGENTID-
  * IDENTITY-CONTRACT-CONFLICT-260528.
+ *
+ * v0.7.0 — DUAL-LICENSE (MLO + RE) IDENTITY P3 (wire contract). Adds
+ * `agent.roles` (free-text string[] dual signal, e.g. ["MLO","RE"]) and
+ * `agent.licenses` ({ mlo?, re? } — one optional strict sub-object per
+ * license type, mirroring the active rows of the Rello `AgentLicense`
+ * canonical table). Both live INSIDE the already-versioned `agent` block, so
+ * `projectPayloadForVersion` strips them whole for any spoke pinned < v0.7.0
+ * (their `agent.shape` lacks the keys → `.strict()` receiver never 400s; the
+ * laggard keeps the flat `agent.{nmlsNumber,licenseNumber,brokerage*}` mirror
+ * the producer continues to populate). Provenance: SPEC-P3-WIRE-CONTRACT.md.
+ *
+ * VERSION-CORRECTION NOTE (BR-8 "canonical-latest = latest git TAG"): the
+ * workstream feature/audit docs name this bump "v0.6.0 (additive licenses)" —
+ * that is STALE. v0.6.0 was already shipped for `relloUserId` (a DIFFERENT
+ * change). The dual-license additive bump is therefore **v0.7.0**.
  */
 export declare const AgentPayloadSchema_v0_3_0: z.ZodObject<{
     relloAgentId: z.ZodString;
@@ -82,6 +97,49 @@ export declare const AgentPayloadSchema_v0_6_0: z.ZodObject<{
     emailSignature: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     relloUserId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, z.core.$strict>;
+export declare const AgentPayloadSchema_v0_7_0: z.ZodObject<{
+    relloAgentId: z.ZodString;
+    email: z.ZodString;
+    firstName: z.ZodString;
+    lastName: z.ZodString;
+    slug: z.ZodString;
+    role: z.ZodString;
+    phone: z.ZodNullable<z.ZodString>;
+    photoUrl: z.ZodOptional<z.ZodString>;
+    bio: z.ZodOptional<z.ZodString>;
+    title: z.ZodOptional<z.ZodString>;
+    tagline: z.ZodOptional<z.ZodString>;
+    brokerageName: z.ZodOptional<z.ZodString>;
+    brokerageLogoUrl: z.ZodOptional<z.ZodString>;
+    brokerageLicenseNumber: z.ZodOptional<z.ZodString>;
+    licenseNumber: z.ZodOptional<z.ZodString>;
+    licenseState: z.ZodOptional<z.ZodString>;
+    nmlsNumber: z.ZodOptional<z.ZodString>;
+    websiteUrl: z.ZodOptional<z.ZodString>;
+    applicationUrl: z.ZodOptional<z.ZodString>;
+    social: z.ZodOptional<z.ZodUnknown>;
+    mloName: z.ZodOptional<z.ZodString>;
+    mloNmls: z.ZodOptional<z.ZodString>;
+    emailSignature: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    relloUserId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    roles: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    licenses: z.ZodOptional<z.ZodObject<{
+        mlo: z.ZodOptional<z.ZodObject<{
+            nmlsNumber: z.ZodOptional<z.ZodString>;
+            states: z.ZodArray<z.ZodString>;
+            firmName: z.ZodOptional<z.ZodString>;
+            firmLicense: z.ZodOptional<z.ZodString>;
+            firmLogoUrl: z.ZodOptional<z.ZodString>;
+        }, z.core.$strict>>;
+        re: z.ZodOptional<z.ZodObject<{
+            licenseNumber: z.ZodOptional<z.ZodString>;
+            states: z.ZodArray<z.ZodString>;
+            firmName: z.ZodOptional<z.ZodString>;
+            firmLicense: z.ZodOptional<z.ZodString>;
+            firmLogoUrl: z.ZodOptional<z.ZodString>;
+        }, z.core.$strict>>;
+    }, z.core.$strict>>;
+}, z.core.$strict>;
 export declare const AgentPayloadSchema: z.ZodObject<{
     relloAgentId: z.ZodString;
     email: z.ZodString;
@@ -107,6 +165,23 @@ export declare const AgentPayloadSchema: z.ZodObject<{
     mloNmls: z.ZodOptional<z.ZodString>;
     emailSignature: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     relloUserId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    roles: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    licenses: z.ZodOptional<z.ZodObject<{
+        mlo: z.ZodOptional<z.ZodObject<{
+            nmlsNumber: z.ZodOptional<z.ZodString>;
+            states: z.ZodArray<z.ZodString>;
+            firmName: z.ZodOptional<z.ZodString>;
+            firmLicense: z.ZodOptional<z.ZodString>;
+            firmLogoUrl: z.ZodOptional<z.ZodString>;
+        }, z.core.$strict>>;
+        re: z.ZodOptional<z.ZodObject<{
+            licenseNumber: z.ZodOptional<z.ZodString>;
+            states: z.ZodArray<z.ZodString>;
+            firmName: z.ZodOptional<z.ZodString>;
+            firmLicense: z.ZodOptional<z.ZodString>;
+            firmLogoUrl: z.ZodOptional<z.ZodString>;
+        }, z.core.$strict>>;
+    }, z.core.$strict>>;
 }, z.core.$strict>;
 export declare const AgentProfilePayloadSchema_v0_3_0: z.ZodObject<{
     specialtySentence: z.ZodOptional<z.ZodString>;
@@ -527,6 +602,121 @@ export declare const AgentProvisioningPayloadSchema_v0_6_0: z.ZodObject<{
         relloUserId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     }, z.core.$strict>;
 }, z.core.$strict>;
+export declare const AgentProvisioningPayloadSchema_v0_7_0: z.ZodObject<{
+    tenantId: z.ZodString;
+    syncedAt: z.ZodString;
+    force: z.ZodOptional<z.ZodLiteral<true>>;
+    action: z.ZodEnum<{
+        add: "add";
+        remove: "remove";
+        update: "update";
+    }>;
+    physicalAddress: z.ZodNullable<z.ZodString>;
+    tenantBranding: z.ZodObject<{
+        terminology: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+        teamRoleCopy: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+    }, z.core.$strict>;
+    wizardAnswers: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        questionId: z.ZodString;
+        question: z.ZodString;
+        answer: z.ZodUnknown;
+    }, z.core.$strict>>>;
+    agentNotificationPreference: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+        notifyByEmail: z.ZodBoolean;
+        notifyBySms: z.ZodBoolean;
+        notifyByPush: z.ZodBoolean;
+        dailyDigest: z.ZodBoolean;
+        weeklyAnalytics: z.ZodBoolean;
+    }, z.core.$strict>>>;
+    agentProfile: z.ZodOptional<z.ZodObject<{
+        specialtySentence: z.ZodOptional<z.ZodString>;
+        experienceStatement: z.ZodOptional<z.ZodString>;
+        typicalClient: z.ZodArray<z.ZodString>;
+        areasServed: z.ZodArray<z.ZodString>;
+        designations: z.ZodArray<z.ZodString>;
+        emailTone: z.ZodOptional<z.ZodString>;
+        soloOrTeam: z.ZodOptional<z.ZodString>;
+        preferredContactMethod: z.ZodOptional<z.ZodString>;
+        calendarLink: z.ZodOptional<z.ZodString>;
+        aboutMeFacts: z.ZodOptional<z.ZodString>;
+        avoidTopics: z.ZodArray<z.ZodString>;
+        emphasizeTopics: z.ZodArray<z.ZodString>;
+        sensitiveTopics: z.ZodArray<z.ZodString>;
+        introductionDraft: z.ZodOptional<z.ZodString>;
+        signoffStyle: z.ZodOptional<z.ZodString>;
+        successStorySeeds: z.ZodOptional<z.ZodUnknown>;
+        sendFrequency: z.ZodOptional<z.ZodString>;
+        newsletterTemplateId: z.ZodOptional<z.ZodString>;
+        brandColors: z.ZodOptional<z.ZodUnknown>;
+        leadSourceContext: z.ZodOptional<z.ZodString>;
+        licensedStates: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        pfpDefaultLender: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        pfpDefaultLoanPrograms: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+            CONV: "CONV";
+            FHA: "FHA";
+            VA: "VA";
+            USDA: "USDA";
+            JUMBO: "JUMBO";
+            NONQM: "NONQM";
+        }>>>;
+        pfpDefaultRateSource: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        pfpEqualHousingLogoPlacement: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+            header: "header";
+            footer: "footer";
+            both: "both";
+            none: "none";
+        }>>>;
+        pfpDefaultCreditPullPreference: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+            soft: "soft";
+            hard: "hard";
+            borrower_choice: "borrower_choice";
+        }>>>;
+        pfpWizardCompletedAt: z.ZodNullable<z.ZodOptional<z.ZodCoercedDate<unknown>>>;
+    }, z.core.$strict>>;
+    agent: z.ZodObject<{
+        relloAgentId: z.ZodString;
+        email: z.ZodString;
+        firstName: z.ZodString;
+        lastName: z.ZodString;
+        slug: z.ZodString;
+        role: z.ZodString;
+        phone: z.ZodNullable<z.ZodString>;
+        photoUrl: z.ZodOptional<z.ZodString>;
+        bio: z.ZodOptional<z.ZodString>;
+        title: z.ZodOptional<z.ZodString>;
+        tagline: z.ZodOptional<z.ZodString>;
+        brokerageName: z.ZodOptional<z.ZodString>;
+        brokerageLogoUrl: z.ZodOptional<z.ZodString>;
+        brokerageLicenseNumber: z.ZodOptional<z.ZodString>;
+        licenseNumber: z.ZodOptional<z.ZodString>;
+        licenseState: z.ZodOptional<z.ZodString>;
+        nmlsNumber: z.ZodOptional<z.ZodString>;
+        websiteUrl: z.ZodOptional<z.ZodString>;
+        applicationUrl: z.ZodOptional<z.ZodString>;
+        social: z.ZodOptional<z.ZodUnknown>;
+        mloName: z.ZodOptional<z.ZodString>;
+        mloNmls: z.ZodOptional<z.ZodString>;
+        emailSignature: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        relloUserId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        roles: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        licenses: z.ZodOptional<z.ZodObject<{
+            mlo: z.ZodOptional<z.ZodObject<{
+                nmlsNumber: z.ZodOptional<z.ZodString>;
+                states: z.ZodArray<z.ZodString>;
+                firmName: z.ZodOptional<z.ZodString>;
+                firmLicense: z.ZodOptional<z.ZodString>;
+                firmLogoUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strict>>;
+            re: z.ZodOptional<z.ZodObject<{
+                licenseNumber: z.ZodOptional<z.ZodString>;
+                states: z.ZodArray<z.ZodString>;
+                firmName: z.ZodOptional<z.ZodString>;
+                firmLicense: z.ZodOptional<z.ZodString>;
+                firmLogoUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strict>>;
+        }, z.core.$strict>>;
+    }, z.core.$strict>;
+}, z.core.$strict>;
 export declare const AgentProvisioningPayloadSchema: z.ZodObject<{
     tenantId: z.ZodString;
     syncedAt: z.ZodString;
@@ -623,10 +813,27 @@ export declare const AgentProvisioningPayloadSchema: z.ZodObject<{
         mloNmls: z.ZodOptional<z.ZodString>;
         emailSignature: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         relloUserId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        roles: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        licenses: z.ZodOptional<z.ZodObject<{
+            mlo: z.ZodOptional<z.ZodObject<{
+                nmlsNumber: z.ZodOptional<z.ZodString>;
+                states: z.ZodArray<z.ZodString>;
+                firmName: z.ZodOptional<z.ZodString>;
+                firmLicense: z.ZodOptional<z.ZodString>;
+                firmLogoUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strict>>;
+            re: z.ZodOptional<z.ZodObject<{
+                licenseNumber: z.ZodOptional<z.ZodString>;
+                states: z.ZodArray<z.ZodString>;
+                firmName: z.ZodOptional<z.ZodString>;
+                firmLicense: z.ZodOptional<z.ZodString>;
+                firmLogoUrl: z.ZodOptional<z.ZodString>;
+            }, z.core.$strict>>;
+        }, z.core.$strict>>;
     }, z.core.$strict>;
 }, z.core.$strict>;
 export declare const BASELINE_SCHEMA_VERSION: "v0.3.0";
-export declare const PACKAGE_SCHEMA_VERSION: "v0.6.0";
+export declare const PACKAGE_SCHEMA_VERSION: "v0.7.0";
 export declare const VERSIONED_SCHEMAS: {
     readonly "v0.3.0": z.ZodObject<{
         tenantId: z.ZodString;
@@ -992,6 +1199,121 @@ export declare const VERSIONED_SCHEMAS: {
             mloNmls: z.ZodOptional<z.ZodString>;
             emailSignature: z.ZodOptional<z.ZodNullable<z.ZodString>>;
             relloUserId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        }, z.core.$strict>;
+    }, z.core.$strict>;
+    readonly "v0.7.0": z.ZodObject<{
+        tenantId: z.ZodString;
+        syncedAt: z.ZodString;
+        force: z.ZodOptional<z.ZodLiteral<true>>;
+        action: z.ZodEnum<{
+            add: "add";
+            remove: "remove";
+            update: "update";
+        }>;
+        physicalAddress: z.ZodNullable<z.ZodString>;
+        tenantBranding: z.ZodObject<{
+            terminology: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+            teamRoleCopy: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+        }, z.core.$strict>;
+        wizardAnswers: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            questionId: z.ZodString;
+            question: z.ZodString;
+            answer: z.ZodUnknown;
+        }, z.core.$strict>>>;
+        agentNotificationPreference: z.ZodOptional<z.ZodNullable<z.ZodObject<{
+            notifyByEmail: z.ZodBoolean;
+            notifyBySms: z.ZodBoolean;
+            notifyByPush: z.ZodBoolean;
+            dailyDigest: z.ZodBoolean;
+            weeklyAnalytics: z.ZodBoolean;
+        }, z.core.$strict>>>;
+        agentProfile: z.ZodOptional<z.ZodObject<{
+            specialtySentence: z.ZodOptional<z.ZodString>;
+            experienceStatement: z.ZodOptional<z.ZodString>;
+            typicalClient: z.ZodArray<z.ZodString>;
+            areasServed: z.ZodArray<z.ZodString>;
+            designations: z.ZodArray<z.ZodString>;
+            emailTone: z.ZodOptional<z.ZodString>;
+            soloOrTeam: z.ZodOptional<z.ZodString>;
+            preferredContactMethod: z.ZodOptional<z.ZodString>;
+            calendarLink: z.ZodOptional<z.ZodString>;
+            aboutMeFacts: z.ZodOptional<z.ZodString>;
+            avoidTopics: z.ZodArray<z.ZodString>;
+            emphasizeTopics: z.ZodArray<z.ZodString>;
+            sensitiveTopics: z.ZodArray<z.ZodString>;
+            introductionDraft: z.ZodOptional<z.ZodString>;
+            signoffStyle: z.ZodOptional<z.ZodString>;
+            successStorySeeds: z.ZodOptional<z.ZodUnknown>;
+            sendFrequency: z.ZodOptional<z.ZodString>;
+            newsletterTemplateId: z.ZodOptional<z.ZodString>;
+            brandColors: z.ZodOptional<z.ZodUnknown>;
+            leadSourceContext: z.ZodOptional<z.ZodString>;
+            licensedStates: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            pfpDefaultLender: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            pfpDefaultLoanPrograms: z.ZodOptional<z.ZodArray<z.ZodEnum<{
+                CONV: "CONV";
+                FHA: "FHA";
+                VA: "VA";
+                USDA: "USDA";
+                JUMBO: "JUMBO";
+                NONQM: "NONQM";
+            }>>>;
+            pfpDefaultRateSource: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            pfpEqualHousingLogoPlacement: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+                header: "header";
+                footer: "footer";
+                both: "both";
+                none: "none";
+            }>>>;
+            pfpDefaultCreditPullPreference: z.ZodNullable<z.ZodOptional<z.ZodEnum<{
+                soft: "soft";
+                hard: "hard";
+                borrower_choice: "borrower_choice";
+            }>>>;
+            pfpWizardCompletedAt: z.ZodNullable<z.ZodOptional<z.ZodCoercedDate<unknown>>>;
+        }, z.core.$strict>>;
+        agent: z.ZodObject<{
+            relloAgentId: z.ZodString;
+            email: z.ZodString;
+            firstName: z.ZodString;
+            lastName: z.ZodString;
+            slug: z.ZodString;
+            role: z.ZodString;
+            phone: z.ZodNullable<z.ZodString>;
+            photoUrl: z.ZodOptional<z.ZodString>;
+            bio: z.ZodOptional<z.ZodString>;
+            title: z.ZodOptional<z.ZodString>;
+            tagline: z.ZodOptional<z.ZodString>;
+            brokerageName: z.ZodOptional<z.ZodString>;
+            brokerageLogoUrl: z.ZodOptional<z.ZodString>;
+            brokerageLicenseNumber: z.ZodOptional<z.ZodString>;
+            licenseNumber: z.ZodOptional<z.ZodString>;
+            licenseState: z.ZodOptional<z.ZodString>;
+            nmlsNumber: z.ZodOptional<z.ZodString>;
+            websiteUrl: z.ZodOptional<z.ZodString>;
+            applicationUrl: z.ZodOptional<z.ZodString>;
+            social: z.ZodOptional<z.ZodUnknown>;
+            mloName: z.ZodOptional<z.ZodString>;
+            mloNmls: z.ZodOptional<z.ZodString>;
+            emailSignature: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+            relloUserId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+            roles: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            licenses: z.ZodOptional<z.ZodObject<{
+                mlo: z.ZodOptional<z.ZodObject<{
+                    nmlsNumber: z.ZodOptional<z.ZodString>;
+                    states: z.ZodArray<z.ZodString>;
+                    firmName: z.ZodOptional<z.ZodString>;
+                    firmLicense: z.ZodOptional<z.ZodString>;
+                    firmLogoUrl: z.ZodOptional<z.ZodString>;
+                }, z.core.$strict>>;
+                re: z.ZodOptional<z.ZodObject<{
+                    licenseNumber: z.ZodOptional<z.ZodString>;
+                    states: z.ZodArray<z.ZodString>;
+                    firmName: z.ZodOptional<z.ZodString>;
+                    firmLicense: z.ZodOptional<z.ZodString>;
+                    firmLogoUrl: z.ZodOptional<z.ZodString>;
+                }, z.core.$strict>>;
+            }, z.core.$strict>>;
         }, z.core.$strict>;
     }, z.core.$strict>;
 };

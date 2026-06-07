@@ -4,9 +4,11 @@ import {
   AgentProvisioningPayloadSchema,
   AgentProvisioningPayloadSchema_v0_3_0,
   AgentProvisioningPayloadSchema_v0_6_0,
+  AgentProvisioningPayloadSchema_v0_7_0,
   AgentPayloadSchema,
   AgentPayloadSchema_v0_3_0,
   AgentPayloadSchema_v0_6_0,
+  AgentPayloadSchema_v0_7_0,
   AgentProfilePayloadSchema,
   TenantBrandingPayloadSchema,
   AgentNotificationPreferencePayloadSchema,
@@ -352,8 +354,8 @@ test("AgentProvisioningPayloadSchema integration — agentProfile carries PFP ML
 
 // ── v0.6.0 — relloUserId identity-space disambiguation (DISPATCH-T5D) ────────
 
-test("PACKAGE_SCHEMA_VERSION is v0.6.0", () => {
-  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.6.0");
+test("PACKAGE_SCHEMA_VERSION is v0.7.0", () => {
+  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.7.0");
 });
 
 test("v0.6.0 agent schema accepts a string relloUserId", () => {
@@ -469,5 +471,154 @@ test("projection to v0.5.0 maps to the v0.4.0-shape schema (NOT baseline v0.3.0)
 test("projection to an unknown/null version falls back to BASELINE (v0.3.0) and strips both relloUserId and PFP fields", () => {
   const { omittedFields, resolvedVersion } = projectPayloadForVersion(fullV6Payload(), null);
   assert.equal(resolvedVersion, "v0.3.0");
+  assert.equal(omittedFields.includes("agent.relloUserId"), true);
+});
+
+// ── v0.7.0 — DUAL-LICENSE (MLO + RE): agent.roles + agent.licenses ───────────
+
+const DUAL_LICENSES = {
+  mlo: {
+    nmlsNumber: "123456",
+    states: ["UT", "ID"],
+    firmName: "Big Star Mortgage",
+    firmLicense: "98765",
+    firmLogoUrl: "https://example.com/mlo-logo.png",
+  },
+  re: {
+    licenseNumber: "RE-555",
+    states: ["UT"],
+    firmName: "Summit Realty",
+    firmLicense: "BR-111",
+    firmLogoUrl: "https://example.com/re-logo.png",
+  },
+};
+
+test("v0.7.0 agent schema accepts roles=['MLO','RE'] + full licenses.{mlo,re}", () => {
+  const agent = { ...AGENT_V6, roles: ["MLO", "RE"], licenses: DUAL_LICENSES };
+  assert.equal(AgentPayloadSchema_v0_7_0.safeParse(agent).success, true);
+});
+
+test("v0.7.0 agent schema accepts a single-hat agent (licenses.mlo only)", () => {
+  const agent = {
+    ...AGENT_V6,
+    roles: ["MLO"],
+    licenses: { mlo: DUAL_LICENSES.mlo },
+  };
+  assert.equal(AgentPayloadSchema_v0_7_0.safeParse(agent).success, true);
+});
+
+test("v0.7.0 agent schema accepts agent WITHOUT roles/licenses (optional — strict-additive cadence)", () => {
+  assert.equal(AgentPayloadSchema_v0_7_0.safeParse(AGENT_V6).success, true);
+});
+
+test("v0.7.0 agent schema accepts empty roles + empty licenses object (zero-license agent)", () => {
+  const agent = { ...AGENT_V6, roles: [], licenses: {} };
+  assert.equal(AgentPayloadSchema_v0_7_0.safeParse(agent).success, true);
+});
+
+test("v0.7.0 licenses.mlo.<junk> unknown sub-key fails inner .strict() (drift surfaces)", () => {
+  const agent = {
+    ...AGENT_V6,
+    roles: ["MLO"],
+    licenses: { mlo: { ...DUAL_LICENSES.mlo, junkField: "x" } },
+  };
+  assert.equal(AgentPayloadSchema_v0_7_0.safeParse(agent).success, false);
+});
+
+test("v0.7.0 licenses.<junk> unknown facet key fails .strict()", () => {
+  const agent = {
+    ...AGENT_V6,
+    licenses: { mlo: DUAL_LICENSES.mlo, dual: {} },
+  };
+  assert.equal(AgentPayloadSchema_v0_7_0.safeParse(agent).success, false);
+});
+
+test("BACK-COMPAT: v0.6.0 agent schema REJECTS roles/licenses (genuinely versioned, not leaked into old schema)", () => {
+  assert.equal(
+    AgentPayloadSchema_v0_6_0.safeParse({ ...AGENT_V6, roles: ["MLO"] }).success,
+    false,
+  );
+  assert.equal(
+    AgentPayloadSchema_v0_6_0.safeParse({ ...AGENT_V6, licenses: DUAL_LICENSES }).success,
+    false,
+  );
+});
+
+test("latest AgentPayloadSchema === v0.7.0 (accepts roles/licenses; back-compatible without them)", () => {
+  assert.equal(AgentPayloadSchema.safeParse(AGENT_V6).success, true);
+  assert.equal(
+    AgentPayloadSchema.safeParse({ ...AGENT_V6, roles: ["MLO", "RE"], licenses: DUAL_LICENSES }).success,
+    true,
+  );
+});
+
+test("v0.7.0 outer schema integration — full payload with agent.roles + agent.licenses", () => {
+  const payload = {
+    tenantId: "t_123",
+    syncedAt: "2026-06-07T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: { ...AGENT_V6, roles: ["MLO", "RE"], licenses: DUAL_LICENSES },
+  };
+  assert.equal(AgentProvisioningPayloadSchema_v0_7_0.safeParse(payload).success, true);
+});
+
+function fullV7Payload() {
+  return {
+    tenantId: "t_123",
+    syncedAt: "2026-06-07T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: {
+      ...AGENT_V6,
+      relloUserId: "user_abc",
+      roles: ["MLO", "RE"],
+      licenses: DUAL_LICENSES,
+    },
+    agentProfile: { ...baseProfile, licensedStates: ["UT"], pfpDefaultLender: "Big Star" },
+  };
+}
+
+test("projection to v0.7.0 KEEPS agent.roles + agent.licenses (empty omittedFields for them)", () => {
+  const { projected, omittedFields, resolvedVersion } = projectPayloadForVersion(
+    fullV7Payload(),
+    "v0.7.0",
+  );
+  assert.equal(resolvedVersion, "v0.7.0");
+  const agent = projected.agent as Record<string, unknown>;
+  assert.deepEqual(agent.roles, ["MLO", "RE"]);
+  assert.ok(agent.licenses);
+  assert.equal(omittedFields.includes("agent.roles"), false);
+  assert.equal(omittedFields.includes("agent.licenses"), false);
+});
+
+test("projection to v0.6.0 STRIPS agent.roles + agent.licenses WHOLE (laggard-safe), keeps relloUserId", () => {
+  const { projected, omittedFields, resolvedVersion } = projectPayloadForVersion(
+    fullV7Payload(),
+    "v0.6.0",
+  );
+  assert.equal(resolvedVersion, "v0.6.0");
+  const agent = projected.agent as Record<string, unknown>;
+  assert.equal("roles" in agent, false);
+  assert.equal("licenses" in agent, false);
+  assert.equal(omittedFields.includes("agent.roles"), true);
+  assert.equal(omittedFields.includes("agent.licenses"), true);
+  // v0.6.0 still keeps relloUserId.
+  assert.equal(agent.relloUserId, "user_abc");
+});
+
+test("projection to v0.3.0 (baseline) STRIPS roles/licenses AND relloUserId (all novel fields gone)", () => {
+  const { projected, omittedFields, resolvedVersion } = projectPayloadForVersion(
+    fullV7Payload(),
+    "v0.3.0",
+  );
+  assert.equal(resolvedVersion, "v0.3.0");
+  const agent = projected.agent as Record<string, unknown>;
+  assert.equal("roles" in agent, false);
+  assert.equal("licenses" in agent, false);
+  assert.equal(omittedFields.includes("agent.roles"), true);
+  assert.equal(omittedFields.includes("agent.licenses"), true);
   assert.equal(omittedFields.includes("agent.relloUserId"), true);
 });
