@@ -19,11 +19,11 @@ test("BASELINE_SCHEMA_VERSION is v0.3.0 (DL6)", () => {
   assert.equal(BASELINE_SCHEMA_VERSION, "v0.3.0");
 });
 
-test("PACKAGE_SCHEMA_VERSION is v0.7.0 (DL1)", () => {
-  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.7.0");
+test("PACKAGE_SCHEMA_VERSION is v0.7.1 (DL1)", () => {
+  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.7.1");
 });
 
-test("VERSIONED_SCHEMAS registry includes v0.3.0, v0.4.0, v0.5.0, v0.6.0, v0.7.0", () => {
+test("VERSIONED_SCHEMAS registry includes v0.3.0, v0.4.0, v0.5.0, v0.6.0, v0.7.0, v0.7.1", () => {
   assert.equal("v0.3.0" in VERSIONED_SCHEMAS, true);
   assert.equal("v0.4.0" in VERSIONED_SCHEMAS, true);
   // v0.5.0 registered (infra-only release; maps to the v0.4.0 shape) so a
@@ -32,6 +32,8 @@ test("VERSIONED_SCHEMAS registry includes v0.3.0, v0.4.0, v0.5.0, v0.6.0, v0.7.0
   assert.equal("v0.6.0" in VERSIONED_SCHEMAS, true);
   // v0.7.0 — DUAL-LICENSE (agent.roles + agent.licenses).
   assert.equal("v0.7.0" in VERSIONED_SCHEMAS, true);
+  // v0.7.1 — PROD-INCIDENT PATCH (agentProfile.aboutMeFacts array wire-type).
+  assert.equal("v0.7.1" in VERSIONED_SCHEMAS, true);
 });
 
 // ── Baseline-schema-rejects-novel-fields sanity (drift #3 (i)) ──────────────
@@ -165,12 +167,12 @@ test("Round-trip: AgentProvisioningPayloadSchema (latest alias) parses v0.4.0 pa
 
 // ── schemaVersionHandler — DL1 heartbeat handler ────────────────────────────
 
-test("schemaVersionHandler returns 200 with { schemaVersion: 'v0.7.0' }", async () => {
+test("schemaVersionHandler returns 200 with { schemaVersion: 'v0.7.1' }", async () => {
   const req = new Request("https://example.com/api/provisioning/schema-version");
   const res = await schemaVersionHandler(req);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("Content-Type"), "application/json");
   assert.equal(res.headers.get("Cache-Control"), "no-store");
   const body = await res.json() as { schemaVersion: string };
-  assert.equal(body.schemaVersion, "v0.7.0");
+  assert.equal(body.schemaVersion, "v0.7.1");
 });
