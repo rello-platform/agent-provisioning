@@ -54,6 +54,28 @@ const CREDIT_PULL_PREFERENCES = ["soft", "hard", "borrower_choice"] as const;
  * workstream feature/audit docs name this bump "v0.6.0 (additive licenses)" —
  * that is STALE. v0.6.0 was already shipped for `relloUserId` (a DIFFERENT
  * change). The dual-license additive bump is therefore **v0.7.0**.
+ *
+ * v0.7.1 — PROD-INCIDENT PATCH (`agentProfile.aboutMeFacts` wire-type).
+ * The v0.3.0 baseline typed `aboutMeFacts: z.string().optional()`, but the
+ * canonical Rello source (`AgentProfile.aboutMeFacts Json?`) has ALWAYS been
+ * an array of `{ text, category }` objects (Rello write-validator:
+ * `src/app/api/v1/agent-profile/route.ts` — `z.array(z.object({ text, category }))`).
+ * The producer (`push-agent.ts`) sends the array raw; Rello's own pre-fan-out
+ * `InnerPayloadSchema.safeParse` (this package's latest schema) therefore
+ * rejected the WHOLE payload `payload_validation_failed` → every spoke push
+ * failed → `AgentMutationDLQ` rows dead-lettered platform-wide (tenant
+ * `tenant_1774748302517_udvaiy` / Big Star / Kelly Sansom, 7 facts).
+ *
+ * FIX: `aboutMeFacts` becomes the RESILIENT array shape
+ * `z.array(z.object({ text: z.string() }).passthrough()).optional()` —
+ * validates an array of objects with a string `text`, TOLERATES `category`
+ * + any future field. The 5-value category enum is deliberately NOT coupled
+ * on the WIRE: hard-coupling it is exactly the brittleness class that caused
+ * this incident (a 6th category would silently re-break sync). `agentProfile`
+ * stays a NESTED_KEY; `aboutMeFacts` exists in every version's shape so
+ * projection does NOT strip it — but the failing gate is Rello's OWN
+ * pre-fan-out validate, so re-pinning Rello alone drains the DLQ for all
+ * spokes (receivers store it `Json?` and do no string-specific ops).
  */
 
 // ── v0.3.0 baseline agent block (frozen across v0.3.0 → v0.5.0 — the agent
@@ -235,9 +257,19 @@ export const AgentProfilePayloadSchema_v0_4_0 = AgentProfilePayloadSchema_v0_3_0
   pfpWizardCompletedAt: z.coerce.date().optional().nullable(),
 }).strict();
 
+// ── v0.7.1 — PROD-INCIDENT PATCH: corrects `aboutMeFacts` from the wrong
+//    v0.3.0-baseline `z.string().optional()` to the RESILIENT array shape the
+//    Rello source has always sent (array of `{ text, category }` objects).
+//    `.passthrough()` tolerates `category` + any future field so the wire is a
+//    strict superset of the producer and won't re-break on a new category.
+//    All other fields inherited from v0.4.0 unchanged. ─────────────────────
+export const AgentProfilePayloadSchema_v0_7_1 = AgentProfilePayloadSchema_v0_4_0.extend({
+  aboutMeFacts: z.array(z.object({ text: z.string() }).passthrough()).optional(),
+}).strict();
+
 // "Latest" alias points to newest compositional export. Preserved for
 // backward-compatible imports per Build Plan Phase 1 step 2.
-export const AgentProfilePayloadSchema = AgentProfilePayloadSchema_v0_4_0;
+export const AgentProfilePayloadSchema = AgentProfilePayloadSchema_v0_7_1;
 
 export const TenantBrandingPayloadSchema = z.object({
   terminology: z.record(z.string(), z.unknown()),
@@ -317,16 +349,23 @@ export const AgentProvisioningPayloadSchema_v0_7_0 = AgentProvisioningPayloadSch
   agent: AgentPayloadSchema_v0_7_0,
 }).strict();
 
+// ── v0.7.1 — PROD-INCIDENT PATCH: swaps the agentProfile block for
+//    AgentProfilePayloadSchema_v0_7_1 (corrects `aboutMeFacts` to the array
+//    shape). `agent` block unchanged from v0.7.0. ───────────────────────────
+export const AgentProvisioningPayloadSchema_v0_7_1 = AgentProvisioningPayloadSchema_v0_7_0.extend({
+  agentProfile: AgentProfilePayloadSchema_v0_7_1.optional(),
+}).strict();
+
 // "Latest" alias points to newest compositional export. Preserved for
 // backward-compatible imports per Build Plan Phase 1 step 2.
-export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_7_0;
+export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_7_1;
 
 // Codified fallback for unprobed spokes (DL6).
 export const BASELINE_SCHEMA_VERSION = "v0.3.0" as const;
 
 // Heartbeat response value — the schema version this PACKAGE ships (DL1).
 // Bumped at each release alongside `package.json` version.
-export const PACKAGE_SCHEMA_VERSION = "v0.7.0" as const;
+export const PACKAGE_SCHEMA_VERSION = "v0.7.1" as const;
 
 // Version registry — maps semver string → schema object. Consumed by
 // projectPayloadForVersion. Add new versions here as they ship.
@@ -343,6 +382,7 @@ export const VERSIONED_SCHEMAS = {
   "v0.5.0": AgentProvisioningPayloadSchema_v0_4_0,
   "v0.6.0": AgentProvisioningPayloadSchema_v0_6_0,
   "v0.7.0": AgentProvisioningPayloadSchema_v0_7_0,
+  "v0.7.1": AgentProvisioningPayloadSchema_v0_7_1,
 } as const;
 
 export type SupportedSchemaVersion = keyof typeof VERSIONED_SCHEMAS;

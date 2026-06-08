@@ -5,6 +5,8 @@ import {
   AgentProvisioningPayloadSchema_v0_3_0,
   AgentProvisioningPayloadSchema_v0_6_0,
   AgentProvisioningPayloadSchema_v0_7_0,
+  AgentProvisioningPayloadSchema_v0_7_1,
+  AgentProfilePayloadSchema_v0_7_1,
   AgentPayloadSchema,
   AgentPayloadSchema_v0_3_0,
   AgentPayloadSchema_v0_6_0,
@@ -354,8 +356,8 @@ test("AgentProvisioningPayloadSchema integration — agentProfile carries PFP ML
 
 // ── v0.6.0 — relloUserId identity-space disambiguation (DISPATCH-T5D) ────────
 
-test("PACKAGE_SCHEMA_VERSION is v0.7.0", () => {
-  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.7.0");
+test("PACKAGE_SCHEMA_VERSION is v0.7.1", () => {
+  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.7.1");
 });
 
 test("v0.6.0 agent schema accepts a string relloUserId", () => {
@@ -621,4 +623,134 @@ test("projection to v0.3.0 (baseline) STRIPS roles/licenses AND relloUserId (all
   assert.equal(omittedFields.includes("agent.roles"), true);
   assert.equal(omittedFields.includes("agent.licenses"), true);
   assert.equal(omittedFields.includes("agent.relloUserId"), true);
+});
+
+// ── v0.7.1 — PROD-INCIDENT PATCH: agentProfile.aboutMeFacts wire-type ────────
+// The whole reason for this release: the v0.3.0 baseline typed aboutMeFacts as
+// z.string(), but Rello has ALWAYS sent an array of { text, category } objects,
+// so Rello's own pre-fan-out validate rejected the WHOLE payload and the
+// AgentMutationDLQ dead-lettered platform-wide.
+
+const ABOUT_ME_FACTS_REAL = [
+  { text: "I love dogs alot", category: "personal" },
+  { text: "I love to mountain bike", category: "hobby" },
+  { text: "Married for 2 years", category: "family" },
+  { text: "I have 7 kids.", category: "personal" },
+  { text: "Local living here in Sandy by Granite Park", category: "community" },
+  { text: "Love how accessible the canyons are", category: "community" },
+  { text: "Love helping people get into their dream home", category: "career" },
+];
+
+test("v0.7.1 agentProfile ACCEPTS an array of { text, category } facts (the real Big Star value)", () => {
+  const profile = { ...baseProfile, aboutMeFacts: ABOUT_ME_FACTS_REAL };
+  assert.equal(AgentProfilePayloadSchema_v0_7_1.safeParse(profile).success, true);
+});
+
+test("v0.7.1 agentProfile TOLERATES future category values (no enum coupling on the wire)", () => {
+  const profile = {
+    ...baseProfile,
+    aboutMeFacts: [{ text: "New angle", category: "some_future_category" }],
+  };
+  assert.equal(AgentProfilePayloadSchema_v0_7_1.safeParse(profile).success, true);
+});
+
+test("v0.7.1 agentProfile TOLERATES extra fact fields via .passthrough() (future-proof)", () => {
+  const profile = {
+    ...baseProfile,
+    aboutMeFacts: [{ text: "fact", category: "career", weight: 3, addedAt: "2026-06-08" }],
+  };
+  assert.equal(AgentProfilePayloadSchema_v0_7_1.safeParse(profile).success, true);
+});
+
+test("v0.7.1 agentProfile accepts aboutMeFacts omitted (optional)", () => {
+  assert.equal(AgentProfilePayloadSchema_v0_7_1.safeParse(baseProfile).success, true);
+});
+
+test("v0.7.1 agentProfile REJECTS a bare string aboutMeFacts (the old wrong wire type)", () => {
+  const profile = { ...baseProfile, aboutMeFacts: "I love dogs alot" };
+  assert.equal(AgentProfilePayloadSchema_v0_7_1.safeParse(profile).success, false);
+});
+
+test("v0.7.1 agentProfile REJECTS a fact whose text is not a string", () => {
+  const profile = { ...baseProfile, aboutMeFacts: [{ text: 42, category: "career" }] };
+  assert.equal(AgentProfilePayloadSchema_v0_7_1.safeParse(profile).success, false);
+});
+
+test("v0.7.1 agentProfile REJECTS a fact missing the required text key", () => {
+  const profile = { ...baseProfile, aboutMeFacts: [{ category: "career" }] };
+  assert.equal(AgentProfilePayloadSchema_v0_7_1.safeParse(profile).success, false);
+});
+
+test("v0.7.1 agentProfile still accepts the 7 PFP MLO fields (inherited from v0.4.0)", () => {
+  const profile = {
+    ...baseProfile,
+    aboutMeFacts: ABOUT_ME_FACTS_REAL,
+    licensedStates: ["UT"],
+    pfpDefaultLender: "Big Star",
+    pfpDefaultLoanPrograms: ["CONV"],
+    pfpEqualHousingLogoPlacement: "footer",
+    pfpDefaultCreditPullPreference: "soft",
+    pfpWizardCompletedAt: "2026-05-18T00:00:00.000Z",
+  };
+  assert.equal(AgentProfilePayloadSchema_v0_7_1.safeParse(profile).success, true);
+});
+
+test("latest AgentProfilePayloadSchema === v0.7.1 (array aboutMeFacts accepted, bare string rejected)", () => {
+  assert.equal(
+    AgentProfilePayloadSchema.safeParse({ ...baseProfile, aboutMeFacts: ABOUT_ME_FACTS_REAL }).success,
+    true,
+  );
+  assert.equal(
+    AgentProfilePayloadSchema.safeParse({ ...baseProfile, aboutMeFacts: "string" }).success,
+    false,
+  );
+});
+
+test("v0.7.1 outer schema integration — reproduces the Big Star DLQ payload and it VALIDATES", () => {
+  const payload = {
+    tenantId: "tenant_1774748302517_udvaiy",
+    syncedAt: "2026-06-08T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: { ...AGENT_V6, roles: ["MLO"], licenses: { mlo: DUAL_LICENSES.mlo } },
+    agentProfile: { ...baseProfile, aboutMeFacts: ABOUT_ME_FACTS_REAL },
+  };
+  assert.equal(AgentProvisioningPayloadSchema_v0_7_1.safeParse(payload).success, true);
+});
+
+test("CONTROL: the SAME Big Star payload was REJECTED by v0.7.0 (proves the bug + the fix)", () => {
+  const payload = {
+    tenantId: "tenant_1774748302517_udvaiy",
+    syncedAt: "2026-06-08T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: { ...AGENT_V6, roles: ["MLO"], licenses: { mlo: DUAL_LICENSES.mlo } },
+    agentProfile: { ...baseProfile, aboutMeFacts: ABOUT_ME_FACTS_REAL },
+  };
+  // v0.7.0 typed aboutMeFacts as a string → array is invalid_type → whole-payload reject.
+  assert.equal(AgentProvisioningPayloadSchema_v0_7_0.safeParse(payload).success, false);
+});
+
+test("v0.7.1 projection KEEPS aboutMeFacts (known key in all versions; never stripped)", () => {
+  const payload = {
+    tenantId: "t_123",
+    syncedAt: "2026-06-08T00:00:00.000Z",
+    action: "update",
+    physicalAddress: null,
+    tenantBranding: { terminology: {}, teamRoleCopy: {} },
+    agent: { ...AGENT_V6 },
+    agentProfile: { ...baseProfile, aboutMeFacts: ABOUT_ME_FACTS_REAL },
+  };
+  // Even projecting to a laggard spoke, aboutMeFacts is a known key in every
+  // version's shape, so projection passes the array through unchanged. The
+  // failing gate was Rello's own pre-fan-out validate (latest schema), which
+  // is why re-pinning Rello alone drains the DLQ for all spokes.
+  for (const v of ["v0.3.0", "v0.4.0", "v0.6.0", "v0.7.0", "v0.7.1"]) {
+    const { projected, omittedFields } = projectPayloadForVersion(payload, v);
+    const ap = projected.agentProfile as Record<string, unknown>;
+    assert.deepEqual(ap.aboutMeFacts, ABOUT_ME_FACTS_REAL, `aboutMeFacts kept for ${v}`);
+    assert.equal(omittedFields.includes("agentProfile.aboutMeFacts"), false, `not stripped for ${v}`);
+  }
 });
