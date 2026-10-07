@@ -356,8 +356,8 @@ test("AgentProvisioningPayloadSchema integration — agentProfile carries PFP ML
 
 // ── v0.6.0 — relloUserId identity-space disambiguation (DISPATCH-T5D) ────────
 
-test("PACKAGE_SCHEMA_VERSION is v0.7.1", () => {
-  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.7.1");
+test("PACKAGE_SCHEMA_VERSION is v0.9.0", () => {
+  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.9.0");
 });
 
 test("v0.6.0 agent schema accepts a string relloUserId", () => {

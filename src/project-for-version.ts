@@ -34,6 +34,11 @@ interface OptionalSchemaShape {
   shape?: Record<string, unknown>;
 }
 
+function acceptsNull(fieldSchema: unknown): boolean {
+  const s = fieldSchema as { safeParse?: (v: unknown) => { success: boolean } };
+  return typeof s?.safeParse === "function" && s.safeParse(null).success;
+}
+
 function unwrapShape(schema: unknown): Record<string, unknown> | null {
   const s = schema as OptionalSchemaShape;
   return s?._def?.innerType?.shape ?? s?.shape ?? null;
@@ -45,6 +50,12 @@ export function projectPayloadForVersion(
 ): {
   projected: Record<string, unknown>;
   omittedFields: string[];
+  /**
+   * v0.9.0 (D-349): `agent.<key>` entries whose value was `null` and whose
+   * target-version field schema does not accept null — dropped, so a spoke
+   * pinned < v0.9.0 receives the key omitted exactly as before v0.9.0.
+   */
+  droppedNulls: string[];
   resolvedVersion: SupportedSchemaVersion;
 } {
   const resolvedVersion: SupportedSchemaVersion =
@@ -56,6 +67,7 @@ export function projectPayloadForVersion(
   const rootShape = schema.shape as Record<string, unknown>;
   const rootKeys = new Set(Object.keys(rootShape));
   const omittedFields: string[] = [];
+  const droppedNulls: string[] = [];
   const projected: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(payload)) {
@@ -71,6 +83,17 @@ export function projectPayloadForVersion(
         const nestedProjected: Record<string, unknown> = {};
         for (const [nKey, nVal] of Object.entries(value as Record<string, unknown>)) {
           if (nestedKeys.has(nKey)) {
+            // v0.9.0 (D-349): `null` means CLEAR only to a receiver whose
+            // schema can parse it. For an older target the field is
+            // `.optional()` without `.nullable()` — a null would 400 its
+            // `.strict()` parse — so the key is dropped, which is exactly
+            // what such a spoke received before v0.9.0 (the producer omitted
+            // the key). Scoped to the `agent` block: agentProfile nulls are
+            // passed through unchanged, as they always were.
+            if (nVal === null && key === "agent" && !acceptsNull(nestedShape[nKey])) {
+              droppedNulls.push(`${key}.${nKey}`);
+              continue;
+            }
             nestedProjected[nKey] = nVal;
           } else {
             omittedFields.push(`${key}.${nKey}`);
@@ -84,5 +107,5 @@ export function projectPayloadForVersion(
     projected[key] = value;
   }
 
-  return { projected, omittedFields, resolvedVersion };
+  return { projected, omittedFields, droppedNulls, resolvedVersion };
 }

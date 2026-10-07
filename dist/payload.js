@@ -208,8 +208,58 @@ export const AgentPayloadSchema_v0_7_0 = AgentPayloadSchema_v0_6_0.extend({
         }).strict().optional(),
     }).strict().optional(),
 }).strict();
+// ── v0.9.0 — ABSENT IS NOT NULL (D-349). ────────────────────────────────────
+//
+// The 13 optional identity strings below become `.nullable().optional()`, so
+// the wire carries three distinct meanings a receiver can tell apart:
+//   key absent → the sender says nothing about this field (NO CHANGE);
+//   `null`     → the sender holds no value (CLEAR);
+//   a string   → the sender's value (SET).
+// Before v0.9.0 these keys were `.optional()` only, so Rello could not say
+// "cleared" and omitted the key instead — and a receiver writing `?? null`
+// turned every partial payload into a wipe (2026-10-06: a profile re-save
+// nulled ClearPath's company NMLS on Home Scout).
+//
+// `phone` (already `.nullable()`, required) and `emailSignature` (already
+// `.nullable().optional()`) are unchanged.
+//
+// PROJECTION: a spoke pinned < v0.9.0 cannot parse a `null` in these keys, so
+// `projectPayloadForVersion` DROPS an `agent.<key>: null` whenever the target
+// version's field schema rejects null — that spoke receives exactly the payload
+// it received before v0.9.0 (the key omitted), and nothing about its behaviour
+// changes.
+export const NULLABLE_AGENT_FIELDS_V0_9_0 = [
+    "photoUrl",
+    "bio",
+    "title",
+    "tagline",
+    "brokerageName",
+    "brokerageLogoUrl",
+    "brokerageLicenseNumber",
+    "licenseNumber",
+    "licenseState",
+    "websiteUrl",
+    "applicationUrl",
+    "mloName",
+    "mloNmls",
+];
+export const AgentPayloadSchema_v0_9_0 = AgentPayloadSchema_v0_7_0.extend({
+    photoUrl: z.string().nullable().optional(),
+    bio: z.string().nullable().optional(),
+    title: z.string().nullable().optional(),
+    tagline: z.string().nullable().optional(),
+    brokerageName: z.string().nullable().optional(),
+    brokerageLogoUrl: z.string().nullable().optional(),
+    brokerageLicenseNumber: z.string().nullable().optional(),
+    licenseNumber: z.string().nullable().optional(),
+    licenseState: z.string().nullable().optional(),
+    websiteUrl: z.string().nullable().optional(),
+    applicationUrl: z.string().nullable().optional(),
+    mloName: z.string().nullable().optional(),
+    mloNmls: z.string().nullable().optional(),
+}).strict();
 // "Latest" alias points to newest compositional export.
-export const AgentPayloadSchema = AgentPayloadSchema_v0_7_0;
+export const AgentPayloadSchema = AgentPayloadSchema_v0_9_0;
 // ── v0.3.0 baseline — pre-PFP MLO fields (frozen). ──────────────────────────
 export const AgentProfilePayloadSchema_v0_3_0 = z.object({
     specialtySentence: z.string().optional(),
@@ -335,14 +385,20 @@ export const AgentProvisioningPayloadSchema_v0_7_0 = AgentProvisioningPayloadSch
 export const AgentProvisioningPayloadSchema_v0_7_1 = AgentProvisioningPayloadSchema_v0_7_0.extend({
     agentProfile: AgentProfilePayloadSchema_v0_7_1.optional(),
 }).strict();
+// ── v0.9.0 — swaps the agent block for AgentPayloadSchema_v0_9_0 (13 identity
+//    strings nullable: absent = no change, null = clear). agentProfile stays
+//    at v0.7.1. ───────────────────────────────────────────────────────────
+export const AgentProvisioningPayloadSchema_v0_9_0 = AgentProvisioningPayloadSchema_v0_7_1.extend({
+    agent: AgentPayloadSchema_v0_9_0,
+}).strict();
 // "Latest" alias points to newest compositional export. Preserved for
 // backward-compatible imports per Build Plan Phase 1 step 2.
-export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_7_1;
+export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_9_0;
 // Codified fallback for unprobed spokes (DL6).
 export const BASELINE_SCHEMA_VERSION = "v0.3.0";
 // Heartbeat response value — the schema version this PACKAGE ships (DL1).
 // Bumped at each release alongside `package.json` version.
-export const PACKAGE_SCHEMA_VERSION = "v0.7.1";
+export const PACKAGE_SCHEMA_VERSION = "v0.9.0";
 // Version registry — maps semver string → schema object. Consumed by
 // projectPayloadForVersion. Add new versions here as they ship.
 export const VERSIONED_SCHEMAS = {
@@ -359,5 +415,11 @@ export const VERSIONED_SCHEMAS = {
     "v0.6.0": AgentProvisioningPayloadSchema_v0_6_0,
     "v0.7.0": AgentProvisioningPayloadSchema_v0_7_0,
     "v0.7.1": AgentProvisioningPayloadSchema_v0_7_1,
+    // v0.8.0 was a build-only release (build→compile) — its payload SHAPE is
+    // identical to v0.7.1, and v0.8.0 spokes advertise PACKAGE_SCHEMA_VERSION
+    // "v0.7.1". Registered so a spoke that ever reports "v0.8.0" is projected to
+    // the v0.7.1 shape, not down to baseline.
+    "v0.8.0": AgentProvisioningPayloadSchema_v0_7_1,
+    "v0.9.0": AgentProvisioningPayloadSchema_v0_9_0,
 };
 //# sourceMappingURL=payload.js.map
