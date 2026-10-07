@@ -25,6 +25,10 @@ const NESTED_KEYS = ["agentProfile", "agent"];
 function isNestedKey(key) {
     return NESTED_KEYS.includes(key);
 }
+function acceptsNull(fieldSchema) {
+    const s = fieldSchema;
+    return typeof s?.safeParse === "function" && s.safeParse(null).success;
+}
 function unwrapShape(schema) {
     const s = schema;
     return s?._def?.innerType?.shape ?? s?.shape ?? null;
@@ -37,6 +41,7 @@ export function projectPayloadForVersion(payload, targetVersion) {
     const rootShape = schema.shape;
     const rootKeys = new Set(Object.keys(rootShape));
     const omittedFields = [];
+    const droppedNulls = [];
     const projected = {};
     for (const [key, value] of Object.entries(payload)) {
         if (!rootKeys.has(key)) {
@@ -50,6 +55,17 @@ export function projectPayloadForVersion(payload, targetVersion) {
                 const nestedProjected = {};
                 for (const [nKey, nVal] of Object.entries(value)) {
                     if (nestedKeys.has(nKey)) {
+                        // v0.9.0 (D-349): `null` means CLEAR only to a receiver whose
+                        // schema can parse it. For an older target the field is
+                        // `.optional()` without `.nullable()` — a null would 400 its
+                        // `.strict()` parse — so the key is dropped, which is exactly
+                        // what such a spoke received before v0.9.0 (the producer omitted
+                        // the key). Scoped to the `agent` block: agentProfile nulls are
+                        // passed through unchanged, as they always were.
+                        if (nVal === null && key === "agent" && !acceptsNull(nestedShape[nKey])) {
+                            droppedNulls.push(`${key}.${nKey}`);
+                            continue;
+                        }
                         nestedProjected[nKey] = nVal;
                     }
                     else {
@@ -62,6 +78,6 @@ export function projectPayloadForVersion(payload, targetVersion) {
         }
         projected[key] = value;
     }
-    return { projected, omittedFields, resolvedVersion };
+    return { projected, omittedFields, droppedNulls, resolvedVersion };
 }
 //# sourceMappingURL=project-for-version.js.map
