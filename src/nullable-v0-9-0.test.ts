@@ -7,13 +7,52 @@ import {
   NULLABLE_AGENT_FIELDS_V0_9_0,
   VERSIONED_SCHEMAS,
   projectPayloadForVersion,
+  type SupportedSchemaVersion,
 } from "./index.js";
 
 // D-349 — absent is not null. v0.9.0 makes 13 agent identity strings nullable
 // (absent = no change, null = clear, value = set); the projection keeps every
 // spoke pinned < v0.9.0 on exactly the payload it received before v0.9.0.
 
-const FIELDS = [...NULLABLE_AGENT_FIELDS_V0_9_0];
+// A-631 (Phase 97) — the field list these tests exercise is DERIVED from the
+// schemas themselves, not copied from the exported constant: every agent key
+// that accepts `null` in v0.9.0 and did not in the version registered just
+// before it. A nullable field added to the schema alone therefore changes the
+// derived set — the comparison with NULLABLE_AGENT_FIELDS_V0_9_0 goes red, and
+// the new field is put through every null/projection case below on its own.
+
+type NullProbe = { safeParse(value: unknown): { success: boolean } };
+function agentShape(version: SupportedSchemaVersion): Record<string, NullProbe> {
+  return (VERSIONED_SCHEMAS[version] as unknown as { shape: { agent: { shape: Record<string, NullProbe> } } }).shape.agent.shape;
+}
+const VERSION_KEYS = Object.keys(VERSIONED_SCHEMAS) as SupportedSchemaVersion[];
+const NEWER: SupportedSchemaVersion = "v0.9.0";
+const PREVIOUS: SupportedSchemaVersion | undefined = VERSION_KEYS[VERSION_KEYS.indexOf(NEWER) - 1];
+const accepts = (probe: NullProbe | undefined, value: unknown) => probe?.safeParse(value).success === true;
+const DERIVED_NULLABLE = Object.entries(agentShape(NEWER))
+  .filter(([key, probe]) => accepts(probe, null) && !accepts(PREVIOUS ? agentShape(PREVIOUS)[key] : undefined, null))
+  .map(([key]) => key)
+  .sort();
+
+const FIELDS = DERIVED_NULLABLE;
+
+test("A-631: the schema-derived newly-nullable set is real (an older version exists; the set is not empty)", () => {
+  assert.ok(PREVIOUS, "a version is registered before v0.9.0");
+  assert.ok(DERIVED_NULLABLE.length > 0, "the derivation found fields");
+});
+
+test("A-631: NULLABLE_AGENT_FIELDS_V0_9_0 is exactly the schema-derived newly-nullable set", () => {
+  assert.deepEqual([...NULLABLE_AGENT_FIELDS_V0_9_0].sort(), DERIVED_NULLABLE);
+});
+
+test("A-631: every derived field is rejected as null by EVERY older registered version (what the projection relies on)", () => {
+  for (const version of VERSION_KEYS.slice(0, VERSION_KEYS.indexOf(NEWER))) {
+    const shape = agentShape(version);
+    for (const field of DERIVED_NULLABLE) {
+      if (field in shape) assert.equal(accepts(shape[field], null), false, `${version} ${field}`);
+    }
+  }
+});
 
 test("the nullable set is exactly the 13 ruled fields", () => {
   assert.deepEqual([...FIELDS].sort(), [
