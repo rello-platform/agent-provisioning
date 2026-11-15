@@ -258,8 +258,19 @@ export const AgentPayloadSchema_v0_9_0 = AgentPayloadSchema_v0_7_0.extend({
     mloName: z.string().nullable().optional(),
     mloNmls: z.string().nullable().optional(),
 }).strict();
+// ── v0.10.0 — adds `loginless` (PFP Gateway X2a, SPEC-PFP-GATEWAY.md rev 10.30
+//    §6 [D30]; Platform KA prompts 1153/1155). true = a D30 extra-signature loan
+//    officer: a Rello Agent that never has a login (Rello's Agent.loginless,
+//    CHECK-guarded to userId NULL). Rello sends it on every push, true or false;
+//    a receiver reads an ABSENT key as unknown, never as "has a login".
+//    `optional` keeps the strict-additive cadence (DL5): projectPayloadForVersion
+//    strips it (agent ∈ NESTED_KEYS) for every spoke pinned < v0.10.0, so no
+//    strict receiver 400s on it. ──────────────────────────────────────────────
+export const AgentPayloadSchema_v0_10_0 = AgentPayloadSchema_v0_9_0.extend({
+    loginless: z.boolean().optional(),
+}).strict();
 // "Latest" alias points to newest compositional export.
-export const AgentPayloadSchema = AgentPayloadSchema_v0_9_0;
+export const AgentPayloadSchema = AgentPayloadSchema_v0_10_0;
 // ── v0.3.0 baseline — pre-PFP MLO fields (frozen). ──────────────────────────
 export const AgentProfilePayloadSchema_v0_3_0 = z.object({
     specialtySentence: z.string().optional(),
@@ -391,14 +402,19 @@ export const AgentProvisioningPayloadSchema_v0_7_1 = AgentProvisioningPayloadSch
 export const AgentProvisioningPayloadSchema_v0_9_0 = AgentProvisioningPayloadSchema_v0_7_1.extend({
     agent: AgentPayloadSchema_v0_9_0,
 }).strict();
+// ── v0.10.0 — swaps the agent block for AgentPayloadSchema_v0_10_0 (adds
+//    `agent.loginless`). agentProfile stays at v0.7.1. ─────────────────────────
+export const AgentProvisioningPayloadSchema_v0_10_0 = AgentProvisioningPayloadSchema_v0_9_0.extend({
+    agent: AgentPayloadSchema_v0_10_0,
+}).strict();
 // "Latest" alias points to newest compositional export. Preserved for
 // backward-compatible imports per Build Plan Phase 1 step 2.
-export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_9_0;
+export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_10_0;
 // Codified fallback for unprobed spokes (DL6).
 export const BASELINE_SCHEMA_VERSION = "v0.3.0";
 // Heartbeat response value — the schema version this PACKAGE ships (DL1).
 // Bumped at each release alongside `package.json` version.
-export const PACKAGE_SCHEMA_VERSION = "v0.9.0";
+export const PACKAGE_SCHEMA_VERSION = "v0.10.0";
 // Version registry — maps semver string → schema object. Consumed by
 // projectPayloadForVersion. Add new versions here as they ship.
 export const VERSIONED_SCHEMAS = {
@@ -421,5 +437,6 @@ export const VERSIONED_SCHEMAS = {
     // the v0.7.1 shape, not down to baseline.
     "v0.8.0": AgentProvisioningPayloadSchema_v0_7_1,
     "v0.9.0": AgentProvisioningPayloadSchema_v0_9_0,
+    "v0.10.0": AgentProvisioningPayloadSchema_v0_10_0,
 };
 //# sourceMappingURL=payload.js.map
