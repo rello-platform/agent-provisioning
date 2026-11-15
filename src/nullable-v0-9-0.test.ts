@@ -66,8 +66,9 @@ for (const f of FIELDS) {
   });
 }
 
-test("the latest alias is v0.9.0 and keeps null as null (no coercion)", () => {
-  assert.equal(AgentProvisioningPayloadSchema, AgentProvisioningPayloadSchema_v0_9_0);
+// v0.10.0 (loginless) extends v0.9.0's agent block, so the latest alias keeps v0.9.0's nulls.
+test("the latest alias (v0.10.0, extends v0.9.0) keeps null as null (no coercion)", () => {
+  assert.equal(AgentProvisioningPayloadSchema, VERSIONED_SCHEMAS["v0.10.0"]);
   const parsed = AgentProvisioningPayloadSchema.parse(clearedAsNull());
   const agent = parsed.agent as Record<string, unknown>;
   for (const f of FIELDS.filter((x) => x !== "title")) {
@@ -77,7 +78,8 @@ test("the latest alias is v0.9.0 and keeps null as null (no coercion)", () => {
   assert.equal("brokerageLicenseNumber" in AgentProvisioningPayloadSchema.parse({ ...outer, agent: agentBase }).agent, false);
 });
 
-const OLDER = (Object.keys(VERSIONED_SCHEMAS) as (keyof typeof VERSIONED_SCHEMAS)[]).filter((v) => v !== "v0.9.0");
+// The versions below v0.9.0 (v0.10.0 extends v0.9.0 and keeps its nulls).
+const OLDER = (Object.keys(VERSIONED_SCHEMAS) as (keyof typeof VERSIONED_SCHEMAS)[]).filter((v) => v !== "v0.9.0" && v !== "v0.10.0");
 
 for (const target of [...OLDER, null, "v9.9.9"]) {
   test(`projection for ${target ?? "an unprobed spoke"}: a null-carrying payload is byte-identical to today's, and parses`, () => {
