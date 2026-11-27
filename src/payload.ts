@@ -395,10 +395,45 @@ export const AgentProfilePayloadSchema_v0_7_1 = AgentProfilePayloadSchema_v0_4_0
 // backward-compatible imports per Build Plan Phase 1 step 2.
 export const AgentProfilePayloadSchema = AgentProfilePayloadSchema_v0_7_1;
 
-export const TenantBrandingPayloadSchema = z.object({
+// ── v0.3.0 baseline — the branding block every pin from v0.3.0 to v0.11.0 declares (frozen). ──
+export const TenantBrandingPayloadSchema_v0_3_0 = z.object({
   terminology: z.record(z.string(), z.unknown()),
   teamRoleCopy: z.record(z.string(), z.unknown()),
 }).strict();
+
+// ── v0.12.0 — TENANT LOGO + COLOURS (Platform KA prompt 2242; SETTINGS-CASCADE C4).
+//
+// The tenant's logo and two colours ride the agent push's branding block, so a
+// Rello TenantBranding save reaches every app through the durable per-agent push
+// (before this they reached a spoke only on the tenant ENABLE push).
+// Mirrored from Rello `TenantBranding.logoUrl` / `primaryColor` / `accentColor`.
+//
+// THREE MEANINGS, the v0.9.0 D-349 rule, per field:
+//   key absent → the sender says nothing about the field: NO CHANGE;
+//   `null`     → Rello holds no value: CLEAR the mirror;
+//   a value    → Rello's value: SET the mirror.
+// A receiver never writes `?? null` for an absent key.
+//
+// PROJECTION: project-for-version.ts recurses into `tenantBranding` from v0.12.0,
+// so a spoke pinned below v0.12.0 receives the block with exactly the keys its own
+// `.strict()` shape declares — byte-equal to what it received before v0.12.0.
+const TENANT_BRANDING_ADDITIONS_V0_12_0 = {
+  logoUrl: z.string().nullable().optional(),
+  primaryColor: z.string().nullable().optional(),
+  accentColor: z.string().nullable().optional(),
+};
+
+/** The branding keys v0.12.0 adds to `tenantBranding`. */
+export const TENANT_BRANDING_FIELDS_V0_12_0 = Object.keys(TENANT_BRANDING_ADDITIONS_V0_12_0) as Array<
+  keyof typeof TENANT_BRANDING_ADDITIONS_V0_12_0
+>;
+
+export const TenantBrandingPayloadSchema_v0_12_0 = TenantBrandingPayloadSchema_v0_3_0.extend({
+  ...TENANT_BRANDING_ADDITIONS_V0_12_0,
+}).strict();
+
+// "Latest" alias points to newest compositional export.
+export const TenantBrandingPayloadSchema = TenantBrandingPayloadSchema_v0_12_0;
 
 export const WizardAnswerPayloadSchema = z.object({
   questionId: z.string().min(1),
@@ -447,7 +482,7 @@ export const AgentProvisioningPayloadSchema_v0_3_0 = z.object({
 
   action: z.enum(["add", "remove", "update"]),
   physicalAddress: z.string().nullable(),
-  tenantBranding: TenantBrandingPayloadSchema,
+  tenantBranding: TenantBrandingPayloadSchema_v0_3_0,
   agent: AgentPayloadSchema_v0_3_0,
   agentProfile: AgentProfilePayloadSchema_v0_3_0.optional(),
   wizardAnswers: z.array(WizardAnswerPayloadSchema).optional(),
@@ -499,16 +534,22 @@ export const AgentProvisioningPayloadSchema_v0_11_0 = AgentProvisioningPayloadSc
   agent: AgentPayloadSchema_v0_11_0,
 }).strict();
 
+// ── v0.12.0 — swaps the branding block for TenantBrandingPayloadSchema_v0_12_0
+//    (tenant logo + colours). agent stays at v0.11.0, agentProfile at v0.7.1. ──
+export const AgentProvisioningPayloadSchema_v0_12_0 = AgentProvisioningPayloadSchema_v0_11_0.extend({
+  tenantBranding: TenantBrandingPayloadSchema_v0_12_0,
+}).strict();
+
 // "Latest" alias points to newest compositional export. Preserved for
 // backward-compatible imports per Build Plan Phase 1 step 2.
-export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_11_0;
+export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_12_0;
 
 // Codified fallback for unprobed spokes (DL6).
 export const BASELINE_SCHEMA_VERSION = "v0.3.0" as const;
 
 // Heartbeat response value — the schema version this PACKAGE ships (DL1).
 // Bumped at each release alongside `package.json` version.
-export const PACKAGE_SCHEMA_VERSION = "v0.11.0" as const;
+export const PACKAGE_SCHEMA_VERSION = "v0.12.0" as const;
 
 // Version registry — maps semver string → schema object. Consumed by
 // projectPayloadForVersion. Add new versions here as they ship.
@@ -534,6 +575,7 @@ export const VERSIONED_SCHEMAS = {
   "v0.9.0": AgentProvisioningPayloadSchema_v0_9_0,
   "v0.10.0": AgentProvisioningPayloadSchema_v0_10_0,
   "v0.11.0": AgentProvisioningPayloadSchema_v0_11_0,
+  "v0.12.0": AgentProvisioningPayloadSchema_v0_12_0,
 } as const;
 
 export type SupportedSchemaVersion = keyof typeof VERSIONED_SCHEMAS;

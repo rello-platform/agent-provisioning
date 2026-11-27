@@ -116,6 +116,20 @@ spoke pinned below v0.11.0 receives each facet with exactly the keys its own
 strict shape declares: byte-equal to its pre-v0.11.0 payload, with every
 dropped key reported as `agent.licenses.<facet>.<key>` in `omittedFields`.
 
+### Tenant logo + colours on the branding block (v0.12.0)
+
+`tenantBranding` gains three optional, nullable fields, mirrored from Rello
+`TenantBranding` (Platform KA prompt 2242, SETTINGS-CASCADE C4): `logoUrl`,
+`primaryColor` and `accentColor`. A Rello branding save now re-pushes every
+agent through the durable agent-mutation path, so these reach each app on that
+push, not only on the tenant enable push. Same three meanings: **absent = no
+change, `null` = cleared in Rello, a value = set.**
+
+`projectPayloadForVersion` now recurses into `tenantBranding`, so a spoke pinned
+below v0.12.0 (or unprobed, on the v0.3.0 baseline) receives the block with
+only `terminology` + `teamRoleCopy`: byte-equal to its pre-v0.12.0 payload,
+with each dropped key reported as `tenantBranding.<key>` in `omittedFields`.
+
 ## Exports
 
 - `AgentProvisioningPayloadSchema` — the top-level wire contract.

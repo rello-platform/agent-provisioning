@@ -91,10 +91,11 @@ const payload = (withNew: boolean) => ({
   },
 });
 
-test("v0.11.0 is registered, is the package's own version and the latest alias", () => {
-  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.11.0");
+test("v0.11.0 is registered; v0.12.0 (tenant logo + colours) builds on it", () => {
+  // v0.12.0 moved PACKAGE_SCHEMA_VERSION and the latest alias on; v0.11.0 stays registered.
+  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.12.0");
   assert.equal("v0.11.0" in VERSIONED_SCHEMAS, true);
-  assert.equal(VERSIONED_SCHEMAS["v0.11.0" as Version], AgentProvisioningPayloadSchema);
+  assert.notEqual(VERSIONED_SCHEMAS["v0.11.0" as Version], AgentProvisioningPayloadSchema);
 });
 
 test("a v0.11.0 payload with every new facet field set, null, or absent parses", () => {
