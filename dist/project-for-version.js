@@ -6,9 +6,9 @@ import { VERSIONED_SCHEMAS, BASELINE_SCHEMA_VERSION } from "./payload.js";
  * for unknown / unprobed targets (safe omit-everything-novel direction
  * per DL6).
  *
- * Recursive at one level: also projects the nested `agentProfile` block.
- * Future additions to other nested blocks (`agent`, `tenantBranding`)
- * follow the same pattern — extend `NESTED_KEYS` below.
+ * Recursive at one level: also projects the nested `agentProfile`, `agent`
+ * and (v0.12.0) `tenantBranding` blocks. Future additions to other nested
+ * blocks follow the same pattern — extend `NESTED_KEYS` below.
  *
  * Returns:
  *   - `projected`: the payload with novel-version keys stripped
@@ -21,7 +21,11 @@ import { VERSIONED_SCHEMAS, BASELINE_SCHEMA_VERSION } from "./payload.js";
 // per-target like agentProfile — a spoke pinned < v0.6.0 has no `relloUserId`
 // in its agent shape, so projection strips it and the spoke's `.strict()`
 // receiver does not 400.
-const NESTED_KEYS = ["agentProfile", "agent"];
+// `tenantBranding` joined in v0.12.0 (SETTINGS-CASCADE C4, prompt 2242): the
+// branding block gained logoUrl / primaryColor / accentColor, and every older
+// pin's branding shape is `.strict()` with only terminology + teamRoleCopy.
+// Before this the block rode to a spoke whole, so a new key would 400 it.
+const NESTED_KEYS = ["agentProfile", "agent", "tenantBranding"];
 function isNestedKey(key) {
     return NESTED_KEYS.includes(key);
 }
