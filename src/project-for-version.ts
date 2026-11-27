@@ -44,6 +44,51 @@ function unwrapShape(schema: unknown): Record<string, unknown> | null {
   return s?._def?.innerType?.shape ?? s?.shape ?? null;
 }
 
+const LICENSES_KEY = "licenses";
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+/**
+ * v0.11.0: project `agent.licenses` one facet deeper. Each facet (`mlo`, `re`)
+ * keeps only the keys the target's facet shape declares; a dropped key is
+ * reported as `agent.licenses.<facet>.<key>`. A facet the target does not
+ * declare at all is dropped whole and reported. When the target's licences
+ * shape cannot be read, the value passes through unchanged (pre-v0.11.0
+ * behaviour), never silently emptied.
+ */
+function projectLicences(
+  value: Record<string, unknown>,
+  licencesSchema: unknown,
+  omittedFields: string[],
+): Record<string, unknown> {
+  const facetShapes = unwrapShape(licencesSchema);
+  if (!facetShapes) return value;
+  const out: Record<string, unknown> = {};
+  for (const [facet, facetVal] of Object.entries(value)) {
+    if (!(facet in facetShapes)) {
+      omittedFields.push(`agent.${LICENSES_KEY}.${facet}`);
+      continue;
+    }
+    const facetShape = unwrapShape(facetShapes[facet]);
+    if (!facetShape || !isPlainObject(facetVal)) {
+      out[facet] = facetVal;
+      continue;
+    }
+    const projectedFacet: Record<string, unknown> = {};
+    for (const [fKey, fVal] of Object.entries(facetVal)) {
+      if (fKey in facetShape) {
+        projectedFacet[fKey] = fVal;
+      } else {
+        omittedFields.push(`agent.${LICENSES_KEY}.${facet}.${fKey}`);
+      }
+    }
+    out[facet] = projectedFacet;
+  }
+  return out;
+}
+
 export function projectPayloadForVersion(
   payload: Record<string, unknown>,
   targetVersion: string | null | undefined,
@@ -92,6 +137,14 @@ export function projectPayloadForVersion(
             // passed through unchanged, as they always were.
             if (nVal === null && key === "agent" && !acceptsNull(nestedShape[nKey])) {
               droppedNulls.push(`${key}.${nKey}`);
+              continue;
+            }
+            // v0.11.0 (brokerage identity): the licence facets gained keys two
+            // levels below the root. Project `agent.licenses.<facet>` against
+            // the target's own facet shape, so a spoke pinned below v0.11.0
+            // receives each facet with exactly the keys it declares.
+            if (key === "agent" && nKey === LICENSES_KEY && isPlainObject(nVal)) {
+              nestedProjected[nKey] = projectLicences(nVal, nestedShape[nKey], omittedFields);
               continue;
             }
             nestedProjected[nKey] = nVal;

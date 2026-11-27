@@ -19,8 +19,8 @@ test("BASELINE_SCHEMA_VERSION is v0.3.0 (DL6)", () => {
   assert.equal(BASELINE_SCHEMA_VERSION, "v0.3.0");
 });
 
-test("PACKAGE_SCHEMA_VERSION is v0.10.0 (DL1)", () => {
-  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.10.0");
+test("PACKAGE_SCHEMA_VERSION is v0.11.0 (DL1)", () => {
+  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.11.0");
 });
 
 test("VERSIONED_SCHEMAS registry includes v0.3.0, v0.4.0, v0.5.0, v0.6.0, v0.7.0, v0.7.1", () => {
@@ -171,12 +171,12 @@ test("Round-trip: AgentProvisioningPayloadSchema (latest alias) parses v0.4.0 pa
 
 // ── schemaVersionHandler — DL1 heartbeat handler ────────────────────────────
 
-test("schemaVersionHandler returns 200 with { schemaVersion: 'v0.10.0' }", async () => {
+test("schemaVersionHandler returns 200 with { schemaVersion: 'v0.11.0' }", async () => {
   const req = new Request("https://example.com/api/provisioning/schema-version");
   const res = await schemaVersionHandler(req);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("Content-Type"), "application/json");
   assert.equal(res.headers.get("Cache-Control"), "no-store");
   const body = await res.json() as { schemaVersion: string };
-  assert.equal(body.schemaVersion, "v0.10.0");
+  assert.equal(body.schemaVersion, "v0.11.0");
 });
