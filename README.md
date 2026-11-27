@@ -91,6 +91,31 @@ toggles + cadence). See `AgentNotificationPreferencePayloadSchema` in
 canonical legacy column retired alongside in D-5.C-NS dispatch; other 9
 spokes ACCEPT-AND-IGNORE the field via strict zod parse.
 
+### Brokerage identity on the licence facets (v0.11.0)
+
+`agent.licenses.mlo` and `agent.licenses.re` each gain six optional, nullable
+fields, mirrored from the same Rello `AgentLicense` row as `firmName` /
+`firmLicense` (design: `BUILD-|-WORKSTREAM/BROKERAGE-IDENTITY/DESIGN-BROKERAGE-IDENTITY-261127.md`):
+
+| field | shape | meaning |
+|---|---|---|
+| `firmLegalName` | string | the licensed legal entity ("<trade name> is part of <X>") |
+| `firmTradeNames` | string[] | trade names printed before "are part of"; empty = `[firmName]` |
+| `firmStateLicenses` | { "ID": "MBL-…" } | the company's state licence numbers |
+| `firmHqAddress` | string | the company's headquarters address |
+| `firmStateDisclosureTokens` | { "TX": { token: value } } | remaining per-state disclosure tokens |
+| `stateNumbers` | { "UT": "…" } | the agent's own state licence numbers (never the NMLS) |
+
+State keys are two capital letters. Each field carries three meanings (the
+v0.9.0 rule): **absent = no change, `null` = cleared in Rello, a value = set.**
+A receiver never writes `?? null` for an absent key. Linked spokes show these
+values read-only; Rello is the only editor.
+
+`projectPayloadForVersion` now recurses into the `agent.licenses` facets, so a
+spoke pinned below v0.11.0 receives each facet with exactly the keys its own
+strict shape declares: byte-equal to its pre-v0.11.0 payload, with every
+dropped key reported as `agent.licenses.<facet>.<key>` in `omittedFields`.
+
 ## Exports
 
 - `AgentProvisioningPayloadSchema` — the top-level wire contract.

@@ -279,8 +279,68 @@ export const AgentPayloadSchema_v0_10_0 = AgentPayloadSchema_v0_9_0.extend({
   loginless: z.boolean().optional(),
 }).strict();
 
+// ── v0.11.0 — BROKERAGE IDENTITY (Platform KA prompt 2140; design
+//    BUILD-|-WORKSTREAM/BROKERAGE-IDENTITY/DESIGN-BROKERAGE-IDENTITY-261127.md).
+//
+// Each licence facet gains the brokerage's legal identity, mirrored from the
+// same Rello `AgentLicense` row as `firmName` / `firmLicense`:
+//   firmLegalName             the licensed legal entity ("<trade name> is part of <X>")
+//   firmTradeNames            trade names printed before "are part of"; empty = [firmName]
+//   firmStateLicenses         state code → the COMPANY's state licence # ({"ID":"MBL-…"})
+//   firmHqAddress             the company's headquarters address (state disclosure blocks)
+//   firmStateDisclosureTokens state code → { token: value } for the remaining
+//                             per-state disclosure tokens (a TX recovery-fund URL, …)
+//   stateNumbers              state code → the AGENT's own state licence #
+//                             (AgentLicense.stateNumbers; never the NMLS)
+//
+// THREE MEANINGS, the v0.9.0 D-349 rule, per field:
+//   key absent → the sender says nothing about the field: NO CHANGE;
+//   `null`     → Rello holds no value: CLEAR the mirror;
+//   a value    → Rello's value: SET the mirror.
+// A receiver never writes `?? null` for an absent key.
+//
+// PROJECTION: the facets are two levels below the root (agent → licenses →
+// mlo/re). project-for-version.ts recurses into the `agent.licenses` facets, so
+// a spoke pinned below v0.11.0 receives each facet with exactly the keys its own
+// `.strict()` shape declares — byte-equal to what it received before v0.11.0.
+const STATE_CODE = z.string().regex(/^[A-Z]{2}$/);
+const LICENCE_FACET_ADDITIONS_V0_11_0 = {
+  firmLegalName: z.string().nullable().optional(),
+  firmTradeNames: z.array(z.string()).nullable().optional(),
+  firmStateLicenses: z.record(STATE_CODE, z.string()).nullable().optional(),
+  firmHqAddress: z.string().nullable().optional(),
+  firmStateDisclosureTokens: z.record(STATE_CODE, z.record(z.string(), z.string())).nullable().optional(),
+  stateNumbers: z.record(STATE_CODE, z.string()).nullable().optional(),
+};
+
+/** The facet keys v0.11.0 adds to `agent.licenses.mlo` and `agent.licenses.re`. */
+export const LICENCE_FACET_FIELDS_V0_11_0 = Object.keys(LICENCE_FACET_ADDITIONS_V0_11_0) as Array<
+  keyof typeof LICENCE_FACET_ADDITIONS_V0_11_0
+>;
+
+export const AgentPayloadSchema_v0_11_0 = AgentPayloadSchema_v0_10_0.extend({
+  licenses: z.object({
+    mlo: z.object({
+      nmlsNumber: z.string().optional(),
+      states: z.array(z.string()),
+      firmName: z.string().optional(),
+      firmLicense: z.string().optional(),
+      firmLogoUrl: z.string().optional(),
+      ...LICENCE_FACET_ADDITIONS_V0_11_0,
+    }).strict().optional(),
+    re: z.object({
+      licenseNumber: z.string().optional(),
+      states: z.array(z.string()),
+      firmName: z.string().optional(),
+      firmLicense: z.string().optional(),
+      firmLogoUrl: z.string().optional(),
+      ...LICENCE_FACET_ADDITIONS_V0_11_0,
+    }).strict().optional(),
+  }).strict().optional(),
+}).strict();
+
 // "Latest" alias points to newest compositional export.
-export const AgentPayloadSchema = AgentPayloadSchema_v0_10_0;
+export const AgentPayloadSchema = AgentPayloadSchema_v0_11_0;
 
 // ── v0.3.0 baseline — pre-PFP MLO fields (frozen). ──────────────────────────
 export const AgentProfilePayloadSchema_v0_3_0 = z.object({
@@ -433,16 +493,22 @@ export const AgentProvisioningPayloadSchema_v0_10_0 = AgentProvisioningPayloadSc
   agent: AgentPayloadSchema_v0_10_0,
 }).strict();
 
+// ── v0.11.0 — swaps the agent block for AgentPayloadSchema_v0_11_0 (brokerage
+//    identity on each licence facet). agentProfile stays at v0.7.1. ──────────
+export const AgentProvisioningPayloadSchema_v0_11_0 = AgentProvisioningPayloadSchema_v0_10_0.extend({
+  agent: AgentPayloadSchema_v0_11_0,
+}).strict();
+
 // "Latest" alias points to newest compositional export. Preserved for
 // backward-compatible imports per Build Plan Phase 1 step 2.
-export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_10_0;
+export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_11_0;
 
 // Codified fallback for unprobed spokes (DL6).
 export const BASELINE_SCHEMA_VERSION = "v0.3.0" as const;
 
 // Heartbeat response value — the schema version this PACKAGE ships (DL1).
 // Bumped at each release alongside `package.json` version.
-export const PACKAGE_SCHEMA_VERSION = "v0.10.0" as const;
+export const PACKAGE_SCHEMA_VERSION = "v0.11.0" as const;
 
 // Version registry — maps semver string → schema object. Consumed by
 // projectPayloadForVersion. Add new versions here as they ship.
@@ -467,6 +533,7 @@ export const VERSIONED_SCHEMAS = {
   "v0.8.0": AgentProvisioningPayloadSchema_v0_7_1,
   "v0.9.0": AgentProvisioningPayloadSchema_v0_9_0,
   "v0.10.0": AgentProvisioningPayloadSchema_v0_10_0,
+  "v0.11.0": AgentProvisioningPayloadSchema_v0_11_0,
 } as const;
 
 export type SupportedSchemaVersion = keyof typeof VERSIONED_SCHEMAS;

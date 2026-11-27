@@ -40,10 +40,11 @@ const payload = (loginless?: boolean) => ({
   agent: agent(loginless),
 });
 
-test("v0.10.0 is registered and is the package's own version", () => {
-  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.10.0");
+test("v0.10.0 is registered; v0.11.0 (brokerage identity) builds on it", () => {
+  // v0.11.0 moved PACKAGE_SCHEMA_VERSION and the latest alias on; v0.10.0 stays registered.
+  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.11.0");
   assert.equal("v0.10.0" in VERSIONED_SCHEMAS, true);
-  assert.equal(VERSIONED_SCHEMAS["v0.10.0" as keyof typeof VERSIONED_SCHEMAS], AgentProvisioningPayloadSchema);
+  assert.notEqual(VERSIONED_SCHEMAS["v0.10.0" as keyof typeof VERSIONED_SCHEMAS], AgentProvisioningPayloadSchema);
 });
 
 test("a v0.10.0 payload with loginless true or false parses; a non-boolean is refused", () => {
@@ -56,7 +57,7 @@ test("a v0.10.0 payload with loginless true or false parses; a non-boolean is re
 
 test("every schema below v0.10.0 refuses agent.loginless (strict), so the projection must strip it", () => {
   for (const v of Object.keys(VERSIONED_SCHEMAS)) {
-    if (v === "v0.10.0") continue;
+    if (v === "v0.10.0" || v === "v0.11.0") continue;
     const projected = projectPayloadForVersion(payload(true), v as keyof typeof VERSIONED_SCHEMAS);
     assert.equal(S(v).safeParse({ ...projected.projected, agent: { ...(projected.projected as { agent: object }).agent, loginless: true } }).success, false, `${v} must not declare agent.loginless`);
   }
