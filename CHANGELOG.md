@@ -2,6 +2,20 @@
 
 Earlier releases are described in their merge commits (`git log`) and in README.md.
 
+## v0.13.0 — `agent.sponsorLenderAgentId` (draft; untagged)
+
+- `agent` gains `sponsorLenderAgentId`: `z.string().min(1).nullable().optional()`, the
+  Rello Agent.id of the loan officer sponsoring this agent's Home Insight seat (absent =
+  no change, `null` = no sponsor / cleared, a value = set). Home Insight HI-55 (spec
+  RELLO-HOME-INSIGHT §9; KA ruling 2026-11-28 09:24Z: the field goes through this
+  package, never merged in after a parse).
+- New exports: `AgentPayloadSchema_v0_13_0`, `AgentProvisioningPayloadSchema_v0_13_0`.
+  `VERSIONED_SCHEMAS["v0.13.0"]`; the latest aliases (`AgentPayloadSchema`,
+  `AgentProvisioningPayloadSchema`) and `PACKAGE_SCHEMA_VERSION` move to v0.13.0.
+- No projection change: `agent` is already in `NESTED_KEYS`, so a spoke pinned v0.3.0–
+  v0.12.0, or unprobed, has the key stripped and reported in `omittedFields` (pinned by
+  `src/sponsor-lender-agent-id-v0-13-0.test.ts`). Every schema stays `.strict()`.
+
 ## v0.12.0 — tenant logo + colours on the branding block (unreleased)
 
 - `tenantBranding` gains `logoUrl`, `primaryColor` and `accentColor`: all optional and

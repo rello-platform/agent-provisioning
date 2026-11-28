@@ -25,7 +25,8 @@ const S = (v: string) => {
 };
 
 const NEW_BRANDING_KEYS = ["logoUrl", "primaryColor", "accentColor"] as const;
-const OLDER_PINS = Object.keys(VERSIONED_SCHEMAS).filter((v) => v !== "v0.12.0");
+// v0.13.0 (sponsorLenderAgentId) extends v0.12.0 and carries the branding block, so it is not an older pin.
+const OLDER_PINS = Object.keys(VERSIONED_SCHEMAS).filter((v) => v !== "v0.12.0" && v !== "v0.13.0");
 
 const brandingNew = {
   logoUrl: "https://cdn.example.test/logo.png",
@@ -59,10 +60,11 @@ const payload = (withNew: boolean) => ({
   },
 });
 
-test("v0.12.0 is registered, is the package's own version and the latest alias", () => {
-  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.12.0");
+test("v0.12.0 is registered; v0.13.0 (sponsorLenderAgentId) builds on it", () => {
+  // v0.13.0 moved PACKAGE_SCHEMA_VERSION and the latest alias on; v0.12.0 stays registered.
+  assert.equal(PACKAGE_SCHEMA_VERSION, "v0.13.0");
   assert.equal("v0.12.0" in VERSIONED_SCHEMAS, true);
-  assert.equal(VERSIONED_SCHEMAS["v0.12.0" as Version], AgentProvisioningPayloadSchema);
+  assert.notEqual(VERSIONED_SCHEMAS["v0.12.0" as Version], AgentProvisioningPayloadSchema);
   assert.deepEqual([...pkg.TENANT_BRANDING_FIELDS_V0_12_0], [...NEW_BRANDING_KEYS]);
 });
 
