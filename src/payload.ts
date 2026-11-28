@@ -339,8 +339,23 @@ export const AgentPayloadSchema_v0_11_0 = AgentPayloadSchema_v0_10_0.extend({
   }).strict().optional(),
 }).strict();
 
+// ── v0.13.0 — adds `sponsorLenderAgentId` (Home Insight HI-55, spec
+//    RELLO-HOME-INSIGHT §9; KA ruling 2026-11-28 09:24Z): the Rello Agent.id of
+//    the loan officer who sponsors this agent's Home Insight seat (an ACTIVE
+//    HomeInsightSponsorship). The v0.9.0 D-349 rule:
+//      key absent → the sender says nothing: NO CHANGE;
+//      `null`     → no sponsor: CLEAR the mirror;
+//      a value    → the sponsoring loan officer's Agent.id: SET the mirror.
+//    A receiver never writes `?? null` for an absent key.
+//    `optional` keeps the strict-additive cadence (DL5): projectPayloadForVersion
+//    strips it (agent ∈ NESTED_KEYS) for every spoke pinned < v0.13.0 or
+//    unprobed, so no strict receiver 400s on it. ───────────────────────────────
+export const AgentPayloadSchema_v0_13_0 = AgentPayloadSchema_v0_11_0.extend({
+  sponsorLenderAgentId: z.string().min(1).nullable().optional(),
+}).strict();
+
 // "Latest" alias points to newest compositional export.
-export const AgentPayloadSchema = AgentPayloadSchema_v0_11_0;
+export const AgentPayloadSchema = AgentPayloadSchema_v0_13_0;
 
 // ── v0.3.0 baseline — pre-PFP MLO fields (frozen). ──────────────────────────
 export const AgentProfilePayloadSchema_v0_3_0 = z.object({
@@ -540,16 +555,23 @@ export const AgentProvisioningPayloadSchema_v0_12_0 = AgentProvisioningPayloadSc
   tenantBranding: TenantBrandingPayloadSchema_v0_12_0,
 }).strict();
 
+// ── v0.13.0 — swaps the agent block for AgentPayloadSchema_v0_13_0 (adds
+//    `agent.sponsorLenderAgentId`). tenantBranding stays at v0.12.0,
+//    agentProfile at v0.7.1. ───────────────────────────────────────────────────
+export const AgentProvisioningPayloadSchema_v0_13_0 = AgentProvisioningPayloadSchema_v0_12_0.extend({
+  agent: AgentPayloadSchema_v0_13_0,
+}).strict();
+
 // "Latest" alias points to newest compositional export. Preserved for
 // backward-compatible imports per Build Plan Phase 1 step 2.
-export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_12_0;
+export const AgentProvisioningPayloadSchema = AgentProvisioningPayloadSchema_v0_13_0;
 
 // Codified fallback for unprobed spokes (DL6).
 export const BASELINE_SCHEMA_VERSION = "v0.3.0" as const;
 
 // Heartbeat response value — the schema version this PACKAGE ships (DL1).
 // Bumped at each release alongside `package.json` version.
-export const PACKAGE_SCHEMA_VERSION = "v0.12.0" as const;
+export const PACKAGE_SCHEMA_VERSION = "v0.13.0" as const;
 
 // Version registry — maps semver string → schema object. Consumed by
 // projectPayloadForVersion. Add new versions here as they ship.
@@ -576,6 +598,7 @@ export const VERSIONED_SCHEMAS = {
   "v0.10.0": AgentProvisioningPayloadSchema_v0_10_0,
   "v0.11.0": AgentProvisioningPayloadSchema_v0_11_0,
   "v0.12.0": AgentProvisioningPayloadSchema_v0_12_0,
+  "v0.13.0": AgentProvisioningPayloadSchema_v0_13_0,
 } as const;
 
 export type SupportedSchemaVersion = keyof typeof VERSIONED_SCHEMAS;
